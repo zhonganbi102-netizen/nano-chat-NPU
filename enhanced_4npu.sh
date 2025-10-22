@@ -70,10 +70,7 @@ torchrun \
     --depth=20 \
     --num_iterations=500 \
     --eval_every=50 \
-    --eval_tokens=10240 \
-    --overwrite_output_dir=True \
-    --use_ddp=True \
-    --output_dir=./logs/enhanced_4npu_run
+    --eval_tokens=10240
 
 TRAIN_EXIT_CODE=$?
 

@@ -22,9 +22,7 @@ python scripts/base_train.py \
     --depth=12 \
     --num_iterations=20 \
     --eval_every=10 \
-    --eval_tokens=2048 \
-    --overwrite_output_dir=True \
-    --output_dir=./logs/quick_single_test
+    --eval_tokens=2048
 
 exit_code=$?
 

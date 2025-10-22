@@ -31,9 +31,7 @@ test_single_npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120 \
-        --overwrite_output_dir=True \
-        --output_dir=./logs/test_1npu
+        --eval_tokens=5120
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -68,10 +66,7 @@ test_2npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120 \
-        --overwrite_output_dir=True \
-        --use_ddp=True \
-        --output_dir=./logs/test_2npu
+        --eval_tokens=5120
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -108,10 +103,7 @@ test_4npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120 \
-        --overwrite_output_dir=True \
-        --use_ddp=True \
-        --output_dir=./logs/test_4npu
+        --eval_tokens=5120
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
