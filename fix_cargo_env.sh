@@ -98,11 +98,45 @@ fi
 
 # 使用maturin安装
 echo "使用maturin安装到Python..."
+
+# 尝试方法1: 直接安装到系统环境
+echo "尝试方法1: maturin develop --release"
 if maturin develop --release; then
     echo "✅ maturin安装成功"
 else
-    echo "❌ maturin安装失败"
-    exit 1
+    echo "⚠️  maturin develop失败，尝试方法2..."
+    
+    # 方法2: 使用build + pip install
+    echo "方法2: 构建wheel文件并安装"
+    if maturin build --release; then
+        echo "✅ wheel构建成功"
+        
+        # 查找并安装wheel文件
+        WHEEL_FILE=$(find target/wheels -name "*.whl" | head -1)
+        if [ -n "$WHEEL_FILE" ]; then
+            echo "安装wheel文件: $WHEEL_FILE"
+            if pip install "$WHEEL_FILE" --force-reinstall; then
+                echo "✅ wheel安装成功"
+            else
+                echo "❌ wheel安装失败"
+                exit 1
+            fi
+        else
+            echo "❌ 找不到wheel文件"
+            exit 1
+        fi
+    else
+        echo "❌ wheel构建失败，尝试方法3..."
+        
+        # 方法3: 使用--skip-auditwheel绕过虚拟环境检查
+        echo "方法3: 跳过虚拟环境检查"
+        if python -m pip install . --force-reinstall; then
+            echo "✅ 直接pip安装成功"
+        else
+            echo "❌ 所有安装方法都失败"
+            exit 1
+        fi
+    fi
 fi
 
 # 返回上级目录并验证
