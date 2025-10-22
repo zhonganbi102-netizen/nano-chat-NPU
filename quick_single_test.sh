@@ -19,16 +19,11 @@ python scripts/base_train.py \
     --device_batch_size=4 \
     --total_batch_size=32 \
     --max_seq_len=512 \
-    --model_size=124M \
-    --learning_rate=0.0006 \
-    --warmup_iters=5 \
-    --max_iters=20 \
+    --depth=12 \
+    --num_iterations=20 \
     --eval_every=10 \
     --eval_tokens=2048 \
-    --save_every=100 \
-    --generate_every=100 \
     --overwrite_output_dir=True \
-    --optimizer=adamw \
     --output_dir=./logs/quick_single_test
 
 exit_code=$?

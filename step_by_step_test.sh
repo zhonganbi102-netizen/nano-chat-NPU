@@ -28,16 +28,11 @@ test_single_npu() {
         --device_batch_size=4 \
         --total_batch_size=32 \
         --max_seq_len=512 \
-        --model_size=124M \
-        --learning_rate=0.0006 \
-        --warmup_iters=10 \
-        --max_iters=50 \
+        --depth=12 \
+        --num_iterations=50 \
         --eval_every=25 \
         --eval_tokens=5120 \
-        --save_every=100 \
-        --generate_every=100 \
         --overwrite_output_dir=True \
-        --optimizer=adamw \
         --output_dir=./logs/test_1npu
     
     local exit_code=$?
@@ -70,17 +65,12 @@ test_2npu() {
         --device_batch_size=2 \
         --total_batch_size=32 \
         --max_seq_len=512 \
-        --model_size=124M \
-        --learning_rate=0.0006 \
-        --warmup_iters=10 \
-        --max_iters=50 \
+        --depth=12 \
+        --num_iterations=50 \
         --eval_every=25 \
         --eval_tokens=5120 \
-        --save_every=100 \
-        --generate_every=100 \
         --overwrite_output_dir=True \
         --use_ddp=True \
-        --optimizer=adamw \
         --output_dir=./logs/test_2npu
     
     local exit_code=$?
@@ -115,17 +105,12 @@ test_4npu() {
         --device_batch_size=2 \
         --total_batch_size=32 \
         --max_seq_len=512 \
-        --model_size=124M \
-        --learning_rate=0.0006 \
-        --warmup_iters=10 \
-        --max_iters=50 \
+        --depth=12 \
+        --num_iterations=50 \
         --eval_every=25 \
         --eval_tokens=5120 \
-        --save_every=100 \
-        --generate_every=100 \
         --overwrite_output_dir=True \
         --use_ddp=True \
-        --optimizer=adamw \
         --output_dir=./logs/test_4npu
     
     local exit_code=$?

@@ -67,18 +67,12 @@ torchrun \
     --device_batch_size=$DEVICE_BATCH_SIZE \
     --total_batch_size=$TOTAL_BATCH_SIZE \
     --max_seq_len=$SEQ_LEN \
-    --model_size=124M \
-    --learning_rate=0.0006 \
-    --warmup_iters=250 \
-    --max_iters=500 \
+    --depth=20 \
+    --num_iterations=500 \
     --eval_every=50 \
     --eval_tokens=10240 \
-    --save_every=250 \
-    --generate_every=250 \
     --overwrite_output_dir=True \
     --use_ddp=True \
-    --use_compile=True \
-    --optimizer=adamw \
     --output_dir=./logs/enhanced_4npu_run
 
 TRAIN_EXIT_CODE=$?
