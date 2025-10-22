@@ -20,6 +20,7 @@ import os
 import torch
 import torch_npu
 import torch.distributed as dist
+from datetime import timedelta
 
 def init_process():
     try:
@@ -32,15 +33,19 @@ def init_process():
         # 设置设备
         torch_npu.npu.set_device(local_rank)
         
-        # 初始化进程组
+        # 初始化进程组，使用timedelta设置超时
         dist.init_process_group(
             backend='hccl',
             rank=rank,
             world_size=world_size,
-            timeout=torch.distributed.utils.get_default_timeout() * 3  # 3倍超时
+            timeout=timedelta(minutes=5)  # 5分钟超时
         )
         
         print(f"[Rank {rank}] 进程组初始化成功")
+        
+        # 同步所有进程
+        dist.barrier()
+        print(f"[Rank {rank}] 所有进程已同步")
         
         # 测试简单的all_reduce
         device = f'npu:{local_rank}'
@@ -49,6 +54,17 @@ def init_process():
         
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
         print(f"[Rank {rank}] 接收张量: {tensor[:5]}")
+        
+        # 再次同步
+        dist.barrier()
+        print(f"[Rank {rank}] all_reduce操作完成")
+        
+        # 测试expected结果 (0+1+2+3=6 for each element)
+        expected = torch.ones(10, device=device) * 6
+        if torch.allclose(tensor[:5], expected[:5]):
+            print(f"[Rank {rank}] ✅ all_reduce结果正确!")
+        else:
+            print(f"[Rank {rank}] ❌ all_reduce结果错误! 期望:{expected[:5]} 实际:{tensor[:5]}")
         
         # 清理
         dist.destroy_process_group()
