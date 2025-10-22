@@ -39,7 +39,7 @@ torch.manual_seed(1337)
 # torch_npu不需要单独设置seed，torch.manual_seed已经够了
 
 device = 'npu:0'
-config = GPTConfig(sequence_len=64, vocab_size=1000, n_layer=2, n_head=4, n_embd=128)
+config = GPTConfig(sequence_len=64, vocab_size=1000, n_layer=2, n_head=4, n_kv_head=4, n_embd=128)
 
 try:
     model = GPT(config)
@@ -80,7 +80,7 @@ from nanochat.gpt import GPT, GPTConfig
 torch.manual_seed(1337)
 
 device = 'npu:0'
-config = GPTConfig(sequence_len=32, vocab_size=1000, n_layer=2, n_head=4, n_embd=128)
+config = GPTConfig(sequence_len=32, vocab_size=1000, n_layer=2, n_head=4, n_kv_head=4, n_embd=128)
 
 try:
     model = GPT(config)
@@ -122,7 +122,7 @@ from nanochat.gpt import GPT, GPTConfig
 import os
 
 device = 'npu:0'
-config = GPTConfig(sequence_len=32, vocab_size=1000, n_layer=2, n_head=4, n_embd=128)
+config = GPTConfig(sequence_len=32, vocab_size=1000, n_layer=2, n_head=4, n_kv_head=4, n_embd=128)
 
 try:
     model = GPT(config)

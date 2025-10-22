@@ -30,7 +30,7 @@ try:
     print('✅ nanochat.gpt导入成功')
     
     # 测试模型创建
-    config = GPTConfig(sequence_len=128, vocab_size=1000, n_layer=2, n_head=2, n_embd=64)
+    config = GPTConfig(sequence_len=128, vocab_size=1000, n_layer=2, n_head=2, n_kv_head=2, n_embd=64)
     model = GPT(config)
     print('✅ 模型创建成功')
     
