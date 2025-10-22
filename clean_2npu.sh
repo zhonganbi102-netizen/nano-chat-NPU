@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔧 使用修复优化器的2NPU测试..."
+echo "🔧 修复NPU内存配置的2NPU测试..."
 
 # 环境变量设置
 export ASCEND_RT_VISIBLE_DEVICES=0,1
@@ -12,8 +12,8 @@ export MASTER_PORT=29500
 export HCCL_WHITELIST_DISABLE=1
 export HCCL_IF_IP=127.0.0.1
 
-# 内存设置 - NPU兼容
-# unset PYTORCH_NPU_ALLOC_CONF  # 移除CUDA格式的内存参数
+# NPU内存设置（移除CUDA格式的参数）
+unset PYTORCH_NPU_ALLOC_CONF
 
 # 清理
 pkill -f "python.*base_train.py" 2>/dev/null || true
@@ -22,14 +22,12 @@ sleep 2
 
 echo "配置信息："
 echo "  🔧 已修复优化器：使用标准AdamW和Muon"
+echo "  💾 移除不兼容的内存配置"
 echo "  🎯 2个NPU (0,1)"
 echo "  📊 小模型：depth=3"
-echo "  💾 小batch：device_batch_size=1"
-echo "  📏 短序列：max_seq_len=256"
-echo "  🔢 少步数：仅5步训练"
 echo ""
 
-echo "启动修复优化器的2NPU测试..."
+echo "启动NPU兼容的2NPU测试..."
 
 torchrun --standalone --nproc_per_node=2 -- scripts/base_train.py \
     --depth=3 \
@@ -40,17 +38,16 @@ torchrun --standalone --nproc_per_node=2 -- scripts/base_train.py \
     --eval_every=999999 \
     --core_metric_every=999999 \
     --sample_every=999999 \
-    --run="fixed_opt_2npu_$(date +%Y%m%d_%H%M%S)"
+    --run="clean_2npu_$(date +%Y%m%d_%H%M%S)"
 
 if [ $? -eq 0 ]; then
     echo ""
-    echo "🎉 修复优化器2NPU测试成功！"
-    echo "现在可以尝试4NPU: ./fixed_opt_4npu.sh"
+    echo "🎉 NPU兼容2NPU测试成功！"
+    echo "现在可以尝试4NPU: ./clean_4npu.sh"
 else
     echo ""
-    echo "❌ 修复优化器2NPU测试失败"
-    echo "可能还有其他问题"
+    echo "❌ NPU兼容2NPU测试失败"
 fi
 
 echo ""
-echo "修复优化器测试完成: $(date)"
+echo "NPU兼容测试完成: $(date)"
