@@ -12,7 +12,11 @@ while true; do
     # 检查NPU使用率
     echo "2. NPU使用情况:"
     if command -v npu-smi &> /dev/null; then
-        npu-smi info | grep -E "(NPU|AICore|Memory)" | head -8
+        echo "完整NPU状态:"
+        npu-smi info
+        echo ""
+        echo "NPU利用率汇总:"
+        npu-smi info | grep -E "AICore|Process" | head -10
     fi
     
     # 检查内存使用
