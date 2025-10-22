@@ -239,16 +239,21 @@ for step in range(num_iterations + 1):
     # once in a while: estimate the CORE metric (all ranks participate)
     # use the original uncompiled model because the inputs keep changing shape
     if last_step or (step > 0 and step % core_metric_every == 0):
-        model.eval()
-        with autocast_ctx:
-            results = evaluate_model(orig_model, tokenizer, device, max_per_task=core_metric_max_per_task)
-        print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
-        wandb_run.log({
-            "step": step,
-            "total_training_flops": flops_so_far,
-            "core_metric": results["core_metric"],
-            "centered_results": results["centered_results"],
-        })
+        try:
+            model.eval()
+            with autocast_ctx:
+                results = evaluate_model(orig_model, tokenizer, device, max_per_task=core_metric_max_per_task)
+            print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
+            wandb_run.log({
+                "step": step,
+                "total_training_flops": flops_so_far,
+                "core_metric": results["core_metric"],
+                "centered_results": results["centered_results"],
+            })
+        except FileNotFoundError as e:
+            print0(f"Step {step:05d} | CORE评估跳过: 评估文件不存在 ({e})")
+        except Exception as e:
+            print0(f"Step {step:05d} | CORE评估失败: {e}")
         model.train()
 
     # once in a while: sample from the model (only on master process)

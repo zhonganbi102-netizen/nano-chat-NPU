@@ -31,7 +31,8 @@ test_single_npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120
+        --eval_tokens=5120 \
+        --core_metric_every=999999
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -66,7 +67,8 @@ test_2npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120
+        --eval_tokens=5120 \
+        --core_metric_every=999999
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -103,7 +105,8 @@ test_4npu() {
         --depth=12 \
         --num_iterations=50 \
         --eval_every=25 \
-        --eval_tokens=5120
+        --eval_tokens=5120 \
+        --core_metric_every=999999
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then

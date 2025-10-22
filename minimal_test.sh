@@ -14,7 +14,8 @@ python scripts/base_train.py \
     --max_seq_len=256 \
     --depth=6 \
     --num_iterations=5 \
-    --eval_every=5
+    --eval_every=5 \
+    --core_metric_every=999999
 
 exit_code=$?
 

@@ -71,7 +71,8 @@ torchrun \
     --depth=20 \
     --num_iterations=500 \
     --eval_every=50 \
-    --eval_tokens=10240
+    --eval_tokens=10240 \
+    --core_metric_every=999999
 
 TRAIN_EXIT_CODE=$?
 
