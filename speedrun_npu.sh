@@ -8,6 +8,15 @@ set -e  # 出错时退出
 echo "=== NanoChat NPU Training Pipeline ==="
 echo "华为昇腾NPU训练管道开始..."
 
+# 0. 预检查和清理
+echo "0. 检查是否有残留进程..."
+if pgrep -f "python.*base_train" > /dev/null; then
+    echo "❌ 发现残留的训练进程，请先运行清理脚本:"
+    echo "   ./clean_npu_environment.sh"
+    echo "   然后等待30秒再重新运行此脚本"
+    exit 1
+fi
+
 # 1. 环境检查
 echo "1. 检查NPU环境..."
 python3 -c "
