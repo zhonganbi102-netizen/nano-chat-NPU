@@ -26,7 +26,7 @@ test_single_npu() {
     
     python scripts/base_train.py \
         --device_batch_size=4 \
-        --total_batch_size=32 \
+        --total_batch_size=2048 \
         --max_seq_len=512 \
         --depth=12 \
         --num_iterations=50 \
@@ -61,7 +61,7 @@ test_2npu() {
         --master_port=$MASTER_PORT \
         scripts/base_train.py \
         --device_batch_size=2 \
-        --total_batch_size=32 \
+        --total_batch_size=2048 \
         --max_seq_len=512 \
         --depth=12 \
         --num_iterations=50 \
@@ -98,7 +98,7 @@ test_4npu() {
         --master_port=$MASTER_PORT \
         scripts/base_train.py \
         --device_batch_size=2 \
-        --total_batch_size=32 \
+        --total_batch_size=4096 \
         --max_seq_len=512 \
         --depth=12 \
         --num_iterations=50 \

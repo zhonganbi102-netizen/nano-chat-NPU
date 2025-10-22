@@ -40,12 +40,13 @@ echo "🧪 运行增强版4NPU训练..."
 # 训练参数
 GRAD_ACCUM_STEPS=1
 DEVICE_BATCH_SIZE=2
-TOTAL_BATCH_SIZE=32
+TOTAL_BATCH_SIZE=4096  # 2 * 512 * 4 = 4096 (必须能被world_tokens_per_fwdbwd整除)
 SEQ_LEN=512
 
-# 计算实际的梯度累积步数
+# 计算实际的梯度累积步数  
 DDPWORLD=4
-REAL_GRAD_ACCUM=$((TOTAL_BATCH_SIZE / (DEVICE_BATCH_SIZE * DDPWORLD)))
+WORLD_TOKENS_PER_FWDBWD=$((DEVICE_BATCH_SIZE * SEQ_LEN * DDPWORLD))
+REAL_GRAD_ACCUM=$((TOTAL_BATCH_SIZE / WORLD_TOKENS_PER_FWDBWD))
 
 echo "📈 训练配置:"
 echo "  - 设备批次大小: $DEVICE_BATCH_SIZE"

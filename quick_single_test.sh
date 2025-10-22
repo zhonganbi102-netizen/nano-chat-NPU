@@ -17,7 +17,7 @@ echo "🚀 启动单NPU训练测试..."
 
 python scripts/base_train.py \
     --device_batch_size=4 \
-    --total_batch_size=32 \
+    --total_batch_size=2048 \
     --max_seq_len=512 \
     --depth=12 \
     --num_iterations=20 \

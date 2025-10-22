@@ -10,7 +10,7 @@ echo "🚀 启动极简训练..."
 
 python scripts/base_train.py \
     --device_batch_size=2 \
-    --total_batch_size=8 \
+    --total_batch_size=512 \
     --max_seq_len=256 \
     --depth=6 \
     --num_iterations=5 \
