@@ -3,7 +3,7 @@
 echo "=== 单NPU训练状态检查 ==="
 
 echo "1. 检查训练进程详细信息..."
-TRAIN_PID=$(pgrep -f "python.*base_train")
+TRAIN_PID=$(pgrep -f "python.*base_train" | head -1)
 if [ -n "$TRAIN_PID" ]; then
     echo "✅ 找到训练进程 PID: $TRAIN_PID"
     echo "进程详情:"
@@ -11,11 +11,11 @@ if [ -n "$TRAIN_PID" ]; then
     
     echo ""
     echo "进程状态:"
-    cat /proc/$TRAIN_PID/status | grep -E "(State|VmRSS|VmPeak)"
+    cat /proc/$TRAIN_PID/status | grep -E "(State|VmRSS|VmPeak)" 2>/dev/null || echo "无法读取进程状态"
     
     echo ""
     echo "打开的文件描述符数量:"
-    ls /proc/$TRAIN_PID/fd | wc -l
+    ls /proc/$TRAIN_PID/fd 2>/dev/null | wc -l || echo "无法访问文件描述符"
 else
     echo "❌ 没有找到训练进程"
     exit 1
@@ -59,7 +59,7 @@ fi
 echo ""
 echo "6. 建议操作:"
 if [ -n "$TRAIN_PID" ]; then
-    runtime=$(ps -p $TRAIN_PID -o etime= | tr -d ' ')
+    runtime=$(ps -p $TRAIN_PID -o etime= 2>/dev/null | tr -d ' ')
     echo "训练已运行: $runtime"
     echo "- 如果运行超过10分钟且NPU利用率为0%，可能卡住了"
     echo "- 正常初始化通常需要2-5分钟"
