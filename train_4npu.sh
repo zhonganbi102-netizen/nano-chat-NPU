@@ -73,6 +73,7 @@ echo "🚀 启动分布式训练..."
 torchrun \
     --standalone \
     --nproc_per_node=4 \
+    -- \
     scripts/base_train.py \
     --depth $DEPTH \
     --device_batch_size $DEVICE_BATCH_SIZE \

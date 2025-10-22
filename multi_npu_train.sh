@@ -139,7 +139,7 @@ pkill -f "torchrun" 2>/dev/null || true
 sleep 2
 
 # 创建训练命令
-TRAIN_CMD="torchrun --standalone --nproc_per_node=$NUM_NPUS scripts/base_train.py"
+TRAIN_CMD="torchrun --standalone --nproc_per_node=$NUM_NPUS -- scripts/base_train.py"
 TRAIN_CMD="$TRAIN_CMD --depth $DEPTH"
 TRAIN_CMD="$TRAIN_CMD --device_batch_size $DEVICE_BATCH_SIZE"
 TRAIN_CMD="$TRAIN_CMD --total_batch_size $TOTAL_BATCH_SIZE"
