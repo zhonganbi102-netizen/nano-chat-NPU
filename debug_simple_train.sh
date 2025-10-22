@@ -131,14 +131,40 @@ print0("✅ 优化器初始化成功")
 
 # 数据加载器
 base_dir = get_base_dir()
+print0(f"Base目录: {base_dir}")
+
 try:
+    print0("尝试初始化数据加载器...")
     train_loader = tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="train")
-    build_val_loader = lambda: tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="val")
-    x, y = next(train_loader)
-    print0("✅ 数据加载器成功")
-    use_real_data = True
+    print0("数据加载器创建成功，尝试获取第一批数据...")
+    
+    # 使用超时机制避免无限等待
+    import signal
+    class TimeoutError(Exception):
+        pass
+    
+    def timeout_handler(signum, frame):
+        raise TimeoutError("数据加载超时")
+    
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(10)  # 10秒超时
+    
+    try:
+        x, y = next(train_loader)
+        signal.alarm(0)  # 取消超时
+        print0("✅ 数据加载器成功")
+        use_real_data = True
+    except TimeoutError:
+        signal.alarm(0)
+        print0("⚠️  数据加载超时，切换到模拟数据")
+        use_real_data = False
+    except Exception as e:
+        signal.alarm(0)
+        print0(f"⚠️  数据加载器异常: {e}")
+        use_real_data = False
+        
 except Exception as e:
-    print0(f"⚠️  数据加载器失败: {e}")
+    print0(f"⚠️  数据加载器初始化失败: {e}")
     print0("使用模拟数据")
     use_real_data = False
 
