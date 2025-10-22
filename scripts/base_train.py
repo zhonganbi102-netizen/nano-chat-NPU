@@ -132,15 +132,43 @@ print0(f"Total training FLOPs estimate: {num_flops_per_token * total_tokens:e}")
 
 # -----------------------------------------------------------------------------
 # Initialize the Optimizer (Muon for Linear layers, AdamW for embedding and lm_head)
-optimizers = model.setup_optimizers(unembedding_lr=unembedding_lr, embedding_lr=embedding_lr, matrix_lr=matrix_lr, weight_decay=weight_decay)
-adamw_optimizer, muon_optimizer = optimizers
+print0("🔧 初始化优化器...")
+try:
+    optimizers = model.setup_optimizers(unembedding_lr=unembedding_lr, embedding_lr=embedding_lr, matrix_lr=matrix_lr, weight_decay=weight_decay)
+    adamw_optimizer, muon_optimizer = optimizers
+    print0("✅ 优化器初始化成功")
+except Exception as e:
+    print0(f"❌ 优化器初始化失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
 
 # Initialize the DataLoaders for train/val
+print0("🔄 初始化数据加载器...")
 base_dir = get_base_dir()
 tokens_dir = os.path.join(base_dir, "tokenized_data")
-train_loader = tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="train")
+
+print0("📊 创建训练数据加载器...")
+try:
+    train_loader = tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="train")
+    print0("✅ 训练数据加载器创建成功")
+except Exception as e:
+    print0(f"❌ 训练数据加载器创建失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
+
 build_val_loader = lambda: tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="val")
-x, y = next(train_loader) # kick off load of the very first batch of data
+
+print0("🎯 获取第一批训练数据...")
+try:
+    x, y = next(train_loader) # kick off load of the very first batch of data
+    print0(f"✅ 第一批数据获取成功: x.shape={x.shape}, y.shape={y.shape}, device={x.device}")
+except Exception as e:
+    print0(f"❌ 第一批数据获取失败: {e}")
+    import traceback
+    traceback.print_exc()
+    raise
 
 # -----------------------------------------------------------------------------
 # Set up hyperparameter schedulers
