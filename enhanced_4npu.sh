@@ -64,22 +64,22 @@ torchrun \
     --rdzv_backend=c10d \
     --rdzv_endpoint=$MASTER_ADDR:$MASTER_PORT \
     scripts/base_train.py \
-    --device_batch_size $DEVICE_BATCH_SIZE \
-    --total_batch_size $TOTAL_BATCH_SIZE \
-    --max_seq_len $SEQ_LEN \
-    --model_size 124M \
-    --learning_rate 0.0006 \
-    --warmup_iters 250 \
-    --max_iters 500 \
-    --eval_every 50 \
-    --eval_tokens 10240 \
-    --save_every 250 \
-    --generate_every 250 \
-    --overwrite_output_dir \
-    --use_ddp \
-    --use_compile \
-    --optimizer adamw \
-    --output_dir ./logs/enhanced_4npu_run
+    --device_batch_size=$DEVICE_BATCH_SIZE \
+    --total_batch_size=$TOTAL_BATCH_SIZE \
+    --max_seq_len=$SEQ_LEN \
+    --model_size=124M \
+    --learning_rate=0.0006 \
+    --warmup_iters=250 \
+    --max_iters=500 \
+    --eval_every=50 \
+    --eval_tokens=10240 \
+    --save_every=250 \
+    --generate_every=250 \
+    --overwrite_output_dir=True \
+    --use_ddp=True \
+    --use_compile=True \
+    --optimizer=adamw \
+    --output_dir=./logs/enhanced_4npu_run
 
 TRAIN_EXIT_CODE=$?
 

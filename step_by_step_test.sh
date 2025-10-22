@@ -25,20 +25,20 @@ test_single_npu() {
     export HCCL_EXEC_TIMEOUT=60
     
     python scripts/base_train.py \
-        --device_batch_size 4 \
-        --total_batch_size 32 \
-        --max_seq_len 512 \
-        --model_size 124M \
-        --learning_rate 0.0006 \
-        --warmup_iters 10 \
-        --max_iters 50 \
-        --eval_every 25 \
-        --eval_tokens 5120 \
-        --save_every 100 \
-        --generate_every 100 \
-        --overwrite_output_dir \
-        --optimizer adamw \
-        --output_dir ./logs/test_1npu
+        --device_batch_size=4 \
+        --total_batch_size=32 \
+        --max_seq_len=512 \
+        --model_size=124M \
+        --learning_rate=0.0006 \
+        --warmup_iters=10 \
+        --max_iters=50 \
+        --eval_every=25 \
+        --eval_tokens=5120 \
+        --save_every=100 \
+        --generate_every=100 \
+        --overwrite_output_dir=True \
+        --optimizer=adamw \
+        --output_dir=./logs/test_1npu
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -67,21 +67,21 @@ test_2npu() {
         --master_addr=$MASTER_ADDR \
         --master_port=$MASTER_PORT \
         scripts/base_train.py \
-        --device_batch_size 2 \
-        --total_batch_size 32 \
-        --max_seq_len 512 \
-        --model_size 124M \
-        --learning_rate 0.0006 \
-        --warmup_iters 10 \
-        --max_iters 50 \
-        --eval_every 25 \
-        --eval_tokens 5120 \
-        --save_every 100 \
-        --generate_every 100 \
-        --overwrite_output_dir \
-        --use_ddp \
-        --optimizer adamw \
-        --output_dir ./logs/test_2npu
+        --device_batch_size=2 \
+        --total_batch_size=32 \
+        --max_seq_len=512 \
+        --model_size=124M \
+        --learning_rate=0.0006 \
+        --warmup_iters=10 \
+        --max_iters=50 \
+        --eval_every=25 \
+        --eval_tokens=5120 \
+        --save_every=100 \
+        --generate_every=100 \
+        --overwrite_output_dir=True \
+        --use_ddp=True \
+        --optimizer=adamw \
+        --output_dir=./logs/test_2npu
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
@@ -112,21 +112,21 @@ test_4npu() {
         --master_addr=$MASTER_ADDR \
         --master_port=$MASTER_PORT \
         scripts/base_train.py \
-        --device_batch_size 2 \
-        --total_batch_size 32 \
-        --max_seq_len 512 \
-        --model_size 124M \
-        --learning_rate 0.0006 \
-        --warmup_iters 10 \
-        --max_iters 50 \
-        --eval_every 25 \
-        --eval_tokens 5120 \
-        --save_every 100 \
-        --generate_every 100 \
-        --overwrite_output_dir \
-        --use_ddp \
-        --optimizer adamw \
-        --output_dir ./logs/test_4npu
+        --device_batch_size=2 \
+        --total_batch_size=32 \
+        --max_seq_len=512 \
+        --model_size=124M \
+        --learning_rate=0.0006 \
+        --warmup_iters=10 \
+        --max_iters=50 \
+        --eval_every=25 \
+        --eval_tokens=5120 \
+        --save_every=100 \
+        --generate_every=100 \
+        --overwrite_output_dir=True \
+        --use_ddp=True \
+        --optimizer=adamw \
+        --output_dir=./logs/test_4npu
     
     local exit_code=$?
     if [ $exit_code -eq 0 ]; then
