@@ -54,6 +54,7 @@ fi
 echo "9. 测试基本NPU功能..."
 python3 -c "
 try:
+    import torch
     import torch_npu
     print(f'✅ torch_npu导入成功')
     print(f'NPU数量: {torch_npu.npu.device_count()}')
@@ -61,17 +62,26 @@ try:
     # 测试基本张量操作
     if torch_npu.npu.device_count() > 0:
         torch_npu.npu.set_device(0)
-        x = torch_npu.FloatTensor([1.0])
+        
+        # 使用正确的API创建NPU张量
+        x = torch.tensor([1.0]).npu()
         print(f'✅ 基本NPU操作成功: {x}')
         
+        # 测试NPU计算
+        y = x + 1
+        print(f'✅ NPU计算成功: {y}')
+        
         # 清理测试张量
-        del x
+        del x, y
         torch_npu.npu.empty_cache()
+        
     else:
         print('❌ 没有可用的NPU设备')
         
 except Exception as e:
     print(f'❌ NPU测试失败: {e}')
+    import traceback
+    traceback.print_exc()
 "
 
 echo ""

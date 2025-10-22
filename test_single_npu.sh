@@ -8,6 +8,7 @@ WORLD_SIZE=1
 
 echo "检查单NPU环境..."
 python -c "
+import torch
 import torch_npu
 print(f'可用NPU数量: {torch_npu.npu.device_count()}')
 print(f'当前设备: {torch_npu.npu.current_device()}')
@@ -16,12 +17,15 @@ print(f'设备名称: {torch_npu.npu.get_device_name(0)}')
 
 # 测试内存分配
 try:
-    x = torch_npu.zeros(1000, 1000)
+    x = torch.zeros(1000, 1000).npu()
     print(f'✅ 内存分配测试成功: {x.shape}')
+    print(f'张量设备: {x.device}')
     del x
     torch_npu.npu.empty_cache()
 except Exception as e:
     print(f'❌ 内存分配测试失败: {e}')
+    import traceback
+    traceback.print_exc()
 "
 
 echo ""
