@@ -40,7 +40,7 @@ except Exception as e:
     exit(1)
 
 try:
-    from nanochat.model import GPT, GPTConfig
+    from nanochat.gpt import GPT, GPTConfig
     print("2. ✅ NanoChat模型导入成功")
 except Exception as e:
     print(f"2. ❌ NanoChat模型导入失败: {e}")

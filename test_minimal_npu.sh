@@ -17,7 +17,7 @@ sys.path.insert(0, '/mnt/linxid615/bza/nanochat-npu')
 
 import torch
 import torch_npu
-from nanochat.model import GPT, GPTConfig
+from nanochat.gpt import GPT, GPTConfig
 import time
 
 print('1. 基础环境检查...')
