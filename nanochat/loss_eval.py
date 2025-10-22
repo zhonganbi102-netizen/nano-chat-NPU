@@ -73,5 +73,11 @@ def evaluate_bpb(model, batches, steps, token_bytes):
     # move both to cpu, calculate bpb and return
     total_nats = total_nats.item()
     total_bytes = total_bytes.item()
+    
+    # 避免除零错误
+    if total_bytes == 0:
+        print(f"Warning: total_bytes is 0, returning inf for bpb")
+        return float('inf')
+    
     bpb = total_nats / (math.log(2) * total_bytes)
     return bpb
