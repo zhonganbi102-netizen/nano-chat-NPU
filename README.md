@@ -8,11 +8,25 @@ This repo is a full-stack implementation of an LLM like ChatGPT in a single, cle
 
 ## Quick start
 
+### NVIDIA GPU版本 (推荐)
 The fastest way to feel the magic is to run the speedrun script [speedrun.sh](speedrun.sh), which trains and inferences the $100 tier of nanochat. On an 8XH100 node at $24/hr, this gives a total run time of about 4 hours. Boot up a new 8XH100 GPU box from your favorite provider (e.g. I use and like [Lambda](https://lambda.ai/service/gpu-cloud)), and kick off the training script:
 
 ```bash
 bash speedrun.sh
 ```
+
+### 华为昇腾NPU版本
+For Huawei Ascend NPU support:
+
+```bash
+# 1. 配置NPU环境
+bash setup_ascend.sh
+
+# 2. 运行NPU训练
+bash speedrun_npu.sh
+```
+
+详细的NPU配置和使用说明请参考 [README_ASCEND.md](README_ASCEND.md)
 
 Alternatively, since the script runs for 4 hours, I like to launch it like this inside a new screen session `speedrun` (and also log output to `speedrun.log`):
 

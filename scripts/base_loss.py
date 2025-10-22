@@ -28,7 +28,8 @@ model, tokenizer, meta = load_model("base", device, phase="eval", model_tag=mode
 sequence_len = meta["model_config"]["sequence_len"] # could be arbitrary really
 
 # Set up the precision we'll run with
-autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16)
+device_type = "npu" if device.type == "npu" else "cuda"
+autocast_ctx = torch.amp.autocast(device_type=device_type, dtype=torch.bfloat16)
 
 # Evaluate the loss on each split
 tokens_per_step = device_batch_size * sequence_len * ddp_world_size

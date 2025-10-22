@@ -53,7 +53,8 @@ user_config = {k: globals()[k] for k in config_keys} # possibly useful for loggi
 ddp, ddp_rank, ddp_local_rank, ddp_world_size, device = compute_init()
 master_process = ddp_rank == 0
 dtype = torch.float32 if dtype == 'float32' else torch.bfloat16
-autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=dtype)
+device_type = "npu" if device.type == "npu" else "cuda"
+autocast_ctx = torch.amp.autocast(device_type=device_type, dtype=dtype)
 
 # wandb logging init
 use_dummy_wandb = run == "dummy" or not master_process
@@ -214,7 +215,11 @@ while True:
     # -------------------------------------------------------------------------
     # single training step
     # evaluate the gradient
-    torch.cuda.synchronize()
+    if device_type == "npu":
+        import torch_npu
+        torch_npu.npu.synchronize()
+    else:
+        torch.cuda.synchronize()
     t0 = time.time()
     for micro_step in range(grad_accum_steps):
         with autocast_ctx:
@@ -235,7 +240,11 @@ while True:
     for opt in optimizers:
         opt.step()
     model.zero_grad(set_to_none=True)
-    torch.cuda.synchronize()
+    if device_type == "npu":
+        import torch_npu
+        torch_npu.npu.synchronize()
+    else:
+        torch.cuda.synchronize()
     t1 = time.time()
     dt = t1 - t0
     # -------------------------------------------------------------------------
@@ -267,7 +276,14 @@ while True:
         })
 
 # print a few more stats
-print0(f"Peak memory usage: {torch.cuda.max_memory_allocated() / 1024 / 1024:.2f}MiB")
+if device_type == "npu":
+    try:
+        import torch_npu
+        print0(f"Peak memory usage: {torch_npu.npu.max_memory_allocated() / 1024 / 1024:.2f}MiB")
+    except:
+        print0("Peak memory usage: N/A (NPU memory tracking not available)")
+else:
+    print0(f"Peak memory usage: {torch.cuda.max_memory_allocated() / 1024 / 1024:.2f}MiB")
 print0(f"Total training time: {total_training_time/60:.2f}m")
 print0(f"Minimum validation bpb: {min_val_bpb:.4f}")
 

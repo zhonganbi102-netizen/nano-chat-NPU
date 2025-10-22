@@ -39,7 +39,35 @@ def get_git_info():
     return info
 
 def get_gpu_info():
-    """Get GPU information."""
+    """Get GPU/NPU information."""
+    # Check for NPU first
+    try:
+        import torch_npu
+        if torch_npu.npu.is_available():
+            num_devices = torch_npu.npu.device_count()
+            info = {
+                "available": True,
+                "count": num_devices,
+                "names": [],
+                "memory_gb": [],
+                "device_type": "NPU"
+            }
+            
+            for i in range(num_devices):
+                try:
+                    props = torch_npu.npu.get_device_properties(i)
+                    info["names"].append(f"Ascend {props.name}")
+                    info["memory_gb"].append(getattr(props, 'total_memory', 32 * 1024**3) / (1024**3))  # Default 32GB if not available
+                except:
+                    info["names"].append(f"Ascend NPU {i}")
+                    info["memory_gb"].append(32.0)  # Default 32GB
+            
+            info["cuda_version"] = f"torch_npu {torch_npu.__version__}"
+            return info
+    except ImportError:
+        pass
+    
+    # Fall back to CUDA
     if not torch.cuda.is_available():
         return {"available": False}
 
@@ -48,7 +76,8 @@ def get_gpu_info():
         "available": True,
         "count": num_devices,
         "names": [],
-        "memory_gb": []
+        "memory_gb": [],
+        "device_type": "GPU"
     }
 
     for i in range(num_devices):

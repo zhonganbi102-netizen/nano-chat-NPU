@@ -8,6 +8,13 @@ import logging
 import torch
 import torch.distributed as dist
 
+# Ascend NPU support
+try:
+    import torch_npu
+    NPU_AVAILABLE = True
+except ImportError:
+    NPU_AVAILABLE = False
+
 class ColoredFormatter(logging.Formatter):
     """Custom formatter that adds colors to log messages."""
     # ANSI color codes
@@ -92,12 +99,22 @@ def get_dist_info():
 def compute_init():
     """Basic initialization that we keep doing over and over, so make common."""
 
-    # CUDA is currently required
-    assert torch.cuda.is_available(), "CUDA is needed for a distributed run atm"
+    # Check device availability
+    if NPU_AVAILABLE and torch_npu.npu.is_available():
+        device_type = "npu"
+        print0(f"Using Ascend NPU, device count: {torch_npu.npu.device_count()}")
+    elif torch.cuda.is_available():
+        device_type = "cuda"
+        print0(f"Using CUDA, device count: {torch.cuda.device_count()}")
+    else:
+        raise RuntimeError("Neither NPU nor CUDA is available")
 
     # Reproducibility
     torch.manual_seed(42)
-    torch.cuda.manual_seed(42)
+    if device_type == "npu":
+        torch_npu.npu.manual_seed(42)
+    else:
+        torch.cuda.manual_seed(42)
     # skipping full reproducibility for now, possibly investigate slowdown later
     # torch.use_deterministic_algorithms(True)
     # torch.backends.cudnn.deterministic = True
@@ -109,12 +126,17 @@ def compute_init():
     # Distributed setup: Distributed Data Parallel (DDP), optional
     ddp, ddp_rank, ddp_local_rank, ddp_world_size = get_dist_info()
     if ddp:
-        device = torch.device("cuda", ddp_local_rank)
-        torch.cuda.set_device(device) # make "cuda" default to this device
-        dist.init_process_group(backend="nccl", device_id=device)
+        device = torch.device(device_type, ddp_local_rank)
+        if device_type == "npu":
+            torch_npu.npu.set_device(device) # make "npu" default to this device
+            backend = "hccl"
+        else:
+            torch.cuda.set_device(device) # make "cuda" default to this device
+            backend = "nccl"
+        dist.init_process_group(backend=backend, device_id=device)
         dist.barrier()
     else:
-        device = torch.device("cuda")
+        device = torch.device(device_type)
 
     if ddp_rank == 0:
         logger.info(f"Distributed world size: {ddp_world_size}")
