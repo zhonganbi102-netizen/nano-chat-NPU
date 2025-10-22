@@ -36,19 +36,19 @@ echo "3. 训练base model (depth=12)..."
 torchrun --standalone --nproc_per_node=$WORLD_SIZE -m scripts.base_train -- \
     --run=npu_base_d12 \
     --depth=12 \
-    --device_batch_size=20 \
+    --device_batch_size=16 \
     --total_batch_size=262144
 
 echo "4. 运行midtraining..."
 torchrun --standalone --nproc_per_node=$WORLD_SIZE -m scripts.mid_train -- \
     --run=npu_mid_d12 \
-    --device_batch_size=20 \
+    --device_batch_size=16 \
     --total_batch_size=262144
 
 echo "5. Chat SFT..."
 torchrun --standalone --nproc_per_node=$WORLD_SIZE -m scripts.chat_sft -- \
     --run=npu_sft_d12 \
-    --device_batch_size=10 \
+    --device_batch_size=8 \
     --target_examples_per_step=32
 
 echo "6. Chat RL (可选)..."
@@ -56,7 +56,7 @@ read -p "是否运行RL训练? (y/N): " run_rl
 if [[ $run_rl =~ ^[Yy]$ ]]; then
     torchrun --standalone --nproc_per_node=$WORLD_SIZE -m scripts.chat_rl -- \
         --run=npu_rl_d12 \
-        --device_batch_size=5 \
+        --device_batch_size=4 \
         --examples_per_step=16
 else
     echo "跳过RL训练"
