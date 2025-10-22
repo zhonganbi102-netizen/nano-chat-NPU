@@ -13,6 +13,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import time
 import wandb
 import torch
+import torch.distributed as dist
 
 from nanochat.gpt import GPT, GPTConfig
 from nanochat.dataloader import tokenizing_distributed_data_loader
@@ -209,7 +210,7 @@ for step in range(num_iterations + 1):
     # once in a while: evaluate the val bpb (all ranks participate)
     if last_step or step % eval_every == 0:
         # 确保所有进程都到达评估点
-        if ddp_world_size > 1:
+        if ddp_world_size > 1 and dist.is_initialized():
             dist.barrier()
             print0(f"Step {step:05d} | 所有进程已同步，开始评估...")
         
