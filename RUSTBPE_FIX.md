@@ -8,7 +8,16 @@ AttributeError: module 'rustbpe' has no attribute 'Tokenizer'
 
 ## 快速解决方案
 
-### 方案1：使用自动修复脚本（推荐）
+### 方案1：Rust环境未加载问题（新增）
+如果Rust已安装但cargo命令不可用：
+```bash
+cd /mnt/linxid615/bza/nanochat-npu
+git pull  # 获取最新脚本
+cd rustbpe
+../fix_cargo_env.sh
+```
+
+### 方案2：使用自动修复脚本（推荐）
 ```bash
 cd /mnt/linxid615/bza/nanochat-npu
 git pull  # 获取最新的修复脚本
@@ -16,7 +25,15 @@ chmod +x fix_rustbpe.sh
 ./fix_rustbpe.sh
 ```
 
-### 方案2：手动步骤修复
+### 方案3：完整环境安装
+如果缺少curl和Rust：
+```bash
+cd /mnt/linxid615/bza/nanochat-npu
+git pull
+sudo ./setup_npu_environment.sh
+```
+
+### 方案4：手动步骤修复
 ```bash
 # 1. 确保Rust环境正确
 source ~/.cargo/env
@@ -46,6 +63,17 @@ print('✅ Tokenizer类可用')
 ```
 
 ## 常见问题和解决方案
+
+### 问题0: cargo命令未找到但Rust已安装
+```bash
+# 解决方案：重新加载环境变量
+source ~/.cargo/env
+export PATH="$HOME/.cargo/bin:$PATH"
+
+# 或使用专门脚本
+cd rustbpe
+../fix_cargo_env.sh
+```
 
 ### 问题1: Rust未安装或环境变量错误
 ```bash
