@@ -10,7 +10,11 @@ pkill -f "python.*base_train"
 sleep 5
 
 echo "开始极简测试..."
-python3 -c "
+PYTHONPATH=/mnt/linxid615/bza/nanochat-npu:$PYTHONPATH python3 -c "
+import sys
+import os
+sys.path.insert(0, '/mnt/linxid615/bza/nanochat-npu')
+
 import torch
 import torch_npu
 from nanochat.model import GPT, GPTConfig
