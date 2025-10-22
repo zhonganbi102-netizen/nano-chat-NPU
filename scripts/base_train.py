@@ -208,20 +208,32 @@ for step in range(num_iterations + 1):
 
     # once in a while: evaluate the val bpb (all ranks participate)
     if last_step or step % eval_every == 0:
+        # 确保所有进程都到达评估点
+        if ddp_world_size > 1:
+            dist.barrier()
+            print0(f"Step {step:05d} | 所有进程已同步，开始评估...")
+        
         model.eval()
         val_loader = build_val_loader()
         eval_steps = eval_tokens // (device_batch_size * max_seq_len * ddp_world_size)
-        with autocast_ctx:
-            val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
-        print0(f"Step {step:05d} | Validation bpb: {val_bpb:.4f}")
-        if val_bpb < min_val_bpb:
-            min_val_bpb = val_bpb
-        wandb_run.log({
-            "step": step,
-            "total_training_flops": flops_so_far,
-            "total_training_time": total_training_time,
-            "val/bpb": val_bpb,
-        })
+        
+        try:
+            with autocast_ctx:
+                val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
+            print0(f"Step {step:05d} | Validation bpb: {val_bpb:.4f}")
+            if val_bpb < min_val_bpb:
+                min_val_bpb = val_bpb
+            wandb_run.log({
+                "step": step,
+                "total_training_flops": flops_so_far,
+                "total_training_time": total_training_time,
+                "val/bpb": val_bpb,
+            })
+        except Exception as e:
+            print0(f"Step {step:05d} | 评估失败: {e}")
+            # 使用默认值继续训练
+            val_bpb = float('inf')
+            
         model.train()
 
     # once in a while: estimate the CORE metric (all ranks participate)
