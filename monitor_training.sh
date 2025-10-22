@@ -1,36 +1,47 @@
 #!/bin/bash
 
-echo "=== NPU训练进度监控 ==="
+echo "=== NPU性能监控 ==="
 
 while true; do
-    echo "--- $(date) ---"
+    clear
+    echo "时间: $(date)"
+    echo "======================================"
     
-    # 检查进程状态
-    echo "1. 训练进程状态:"
-    pgrep -f "python.*base_train" > /dev/null && echo "✅ 训练进程运行中" || echo "❌ 训练进程未运行"
+    # NPU使用率
+    echo "NPU使用率:"
+    python3 -c "
+import torch_npu
+import time
+try:
+    for i in range(torch_npu.npu.device_count()):
+        memory_used = torch_npu.npu.memory_allocated(i) / 1024**3
+        memory_total = torch_npu.npu.memory_reserved(i) / 1024**3
+        print(f'NPU {i}: 内存 {memory_used:.1f}G/{memory_total:.1f}G')
+except Exception as e:
+    print(f'获取NPU信息失败: {e}')
+"
+    echo ""
     
-    # 检查NPU使用率
-    echo "2. NPU使用情况:"
-    if command -v npu-smi &> /dev/null; then
-        echo "完整NPU状态:"
-        npu-smi info
-        echo ""
-        echo "NPU利用率汇总:"
-        npu-smi info | grep -E "AICore|Process" | head -10
-    fi
-    
-    # 检查内存使用
-    echo "3. 系统内存:"
-    free -h | head -2
+    # 训练进程
+    echo "训练进程:"
+    ps aux | grep -E "(base_train|torchrun)" | grep -v grep | head -10
+    echo ""
     
     # 检查最新日志
-    echo "4. 最新日志输出:"
-    if [ -d "wandb" ]; then
-        find wandb -name "*.log" -type f -exec tail -n 3 {} \; 2>/dev/null | tail -6
+    if [ -d "logs" ]; then
+        echo "最新训练日志:"
+        latest_log=$(ls -t logs/*.log 2>/dev/null | head -1)
+        if [ -n "$latest_log" ]; then
+            echo "文件: $latest_log"
+            tail -3 "$latest_log" 2>/dev/null | grep -E "(step|loss|tok/s)" || echo "暂无训练日志"
+        else
+            echo "未找到日志文件"
+        fi
+    else
+        echo "日志目录不存在"
     fi
     
-    echo "按Ctrl+C停止监控"
-    echo "=========================="
-    
-    sleep 10
+    echo ""
+    echo "按 Ctrl+C 退出监控"
+    sleep 5
 done
