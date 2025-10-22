@@ -35,10 +35,10 @@ RUN_NAME="4npu_quick_$(date +%Y%m%d_%H%M%S)"
 echo "运行名称: $RUN_NAME"
 
 torchrun --standalone --nproc_per_node=4 -- scripts/base_train.py \
-    --depth 12 \
-    --device_batch_size 8 \
-    --total_batch_size 262144 \
-    --run "$RUN_NAME"
+    --depth=12 \
+    --device_batch_size=8 \
+    --total_batch_size=262144 \
+    --run="$RUN_NAME"
 
 echo ""
 echo "训练完成: $(date)"

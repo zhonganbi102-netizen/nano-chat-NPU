@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🧪 4NPU快速测试..."
+echo "🧪 超简单4NPU测试..."
 
 # 设置环境变量
 export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3
@@ -15,11 +15,10 @@ pkill -f "python.*base_train.py" 2>/dev/null || true
 pkill -f "torchrun" 2>/dev/null || true
 sleep 2
 
-echo "启动4NPU测试训练 (100步)..."
+echo "启动4NPU测试 (仅10步)..."
 
-# 最小化配置测试
+# 只传递必要参数
 torchrun --standalone --nproc_per_node=4 -- scripts/base_train.py \
-    --run="4npu_test_$(date +%Y%m%d_%H%M%S)" \
-    --num_iterations=100
+    --num_iterations=10
 
 echo "测试完成: $(date)"
