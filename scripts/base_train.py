@@ -238,6 +238,7 @@ for step in range(num_iterations + 1):
 
     # once in a while: estimate the CORE metric (all ranks participate)
     # use the original uncompiled model because the inputs keep changing shape
+    results = None  # 初始化results变量
     if last_step or (step > 0 and step % core_metric_every == 0):
         try:
             model.eval()
@@ -252,8 +253,10 @@ for step in range(num_iterations + 1):
             })
         except FileNotFoundError as e:
             print0(f"Step {step:05d} | CORE评估跳过: 评估文件不存在 ({e})")
+            results = {"core_metric": -1, "centered_results": {}}  # 提供默认值
         except Exception as e:
             print0(f"Step {step:05d} | CORE评估失败: {e}")
+            results = {"core_metric": -1, "centered_results": {}}  # 提供默认值
         model.train()
 
     # once in a while: sample from the model (only on master process)
@@ -391,7 +394,7 @@ get_report().log(section="Base model training", data=[
     { # stats about training outcomes
         "Minimum validation bpb": min_val_bpb,
         "Final validation bpb": val_bpb,
-        "CORE metric estimate": results["core_metric"],
+        "CORE metric estimate": results["core_metric"] if results else "N/A",
         "MFU %": f"{mfu:.2f}%",
         "Total training flops": f"{flops_so_far:e}",
         "Total training time": f"{total_training_time/60:.2f}m",
