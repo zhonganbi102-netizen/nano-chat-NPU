@@ -140,10 +140,10 @@ sleep 2
 
 # 创建训练命令
 TRAIN_CMD="torchrun --standalone --nproc_per_node=$NUM_NPUS scripts/base_train.py"
-TRAIN_CMD="$TRAIN_CMD --depth=$DEPTH"
-TRAIN_CMD="$TRAIN_CMD --device_batch_size=$DEVICE_BATCH_SIZE"
-TRAIN_CMD="$TRAIN_CMD --total_batch_size=$TOTAL_BATCH_SIZE"
-TRAIN_CMD="$TRAIN_CMD --run=\"${NUM_NPUS}npu_d${DEPTH}_$(date +%Y%m%d_%H%M%S)\""
+TRAIN_CMD="$TRAIN_CMD --depth $DEPTH"
+TRAIN_CMD="$TRAIN_CMD --device_batch_size $DEVICE_BATCH_SIZE"
+TRAIN_CMD="$TRAIN_CMD --total_batch_size $TOTAL_BATCH_SIZE"
+TRAIN_CMD="$TRAIN_CMD --run \"${NUM_NPUS}npu_d${DEPTH}_$(date +%Y%m%d_%H%M%S)\""
 
 echo ""
 echo "🚀 启动 ${NUM_NPUS}NPU 分布式训练..."

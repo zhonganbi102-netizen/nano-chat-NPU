@@ -74,11 +74,11 @@ torchrun \
     --standalone \
     --nproc_per_node=4 \
     scripts/base_train.py \
-    --depth=$DEPTH \
-    --device_batch_size=$DEVICE_BATCH_SIZE \
-    --total_batch_size=$TOTAL_BATCH_SIZE \
-    --num_iterations=2000 \
-    --run="4npu_training_$(date +%Y%m%d_%H%M%S)"
+    --depth $DEPTH \
+    --device_batch_size $DEVICE_BATCH_SIZE \
+    --total_batch_size $TOTAL_BATCH_SIZE \
+    --num_iterations 2000 \
+    --run "4npu_training_$(date +%Y%m%d_%H%M%S)"
 
 echo ""
 echo "训练结束时间: $(date)"
