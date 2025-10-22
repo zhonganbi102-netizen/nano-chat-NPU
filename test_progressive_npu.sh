@@ -53,8 +53,14 @@ try:
     x = torch.randint(0, 1000, (2, 64), device=device)
     y = torch.randint(0, 1000, (2, 64), device=device)
     
-    logits, loss = model(x, y)
+    # 测试训练模式（with targets）
+    loss = model(x, y)
     print(f'✅ 前向传播成功，损失: {loss.item():.4f}')
+    
+    # 测试推理模式（without targets）
+    with torch.no_grad():
+        logits = model(x)
+        print(f'✅ 推理模式成功，输出形状: {logits.shape}')
     
     optimizer.zero_grad()
     loss.backward()
@@ -98,7 +104,7 @@ try:
         y = torch.randint(0, 1000, (2, 32), device=device)
         
         optimizer.zero_grad()
-        logits, loss = model(x, y)
+        loss = model(x, y)
         loss.backward()
         optimizer.step()
         

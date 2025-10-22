@@ -256,6 +256,21 @@ class GPT(nn.Module):
                 group["initial_lr"] = group["lr"]
         return optimizers
 
+    def configure_optimizers(self, weight_decay=0.0, learning_rate=1e-4, device_type='cuda'):
+        """
+        兼容方法：简化的优化器配置，用于测试和简单训练
+        对于完整训练，建议使用 setup_optimizers 方法
+        """
+        # 简单的AdamW优化器配置
+        params = list(self.parameters())
+        if device_type == 'npu':
+            # NPU环境使用标准AdamW
+            optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay, betas=(0.9, 0.95))
+        else:
+            # 其他设备使用fused AdamW
+            optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay, betas=(0.9, 0.95), fused=True)
+        return optimizer
+
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
         B, T = idx.size()
 
