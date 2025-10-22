@@ -32,9 +32,9 @@ from nanochat.common import get_dist_info, print0
 torch.manual_seed(1337)
 
 # 分布式设置
-ddp, ddp_rank, ddp_local_rank, ddp_world_size = get_dist_info()
-device = torch.device('npu:0')
-device_type = 'npu'
+from nanochat.common import compute_init, compute_cleanup, print0
+ddp, ddp_rank, ddp_local_rank, ddp_world_size, device = compute_init()
+device_type = 'npu' if device.type == 'npu' else 'cuda'
 
 print('=== 测试完整训练设置 ===')
 
@@ -167,6 +167,12 @@ print(f'\\n=== 测试完成 ===')
 print(f'总计训练{num_iterations}步')
 print(f'最大内存使用: {torch_npu.npu.max_memory_allocated(0) / 1024**2:.1f}MB')
 print('✅ 完整NPU训练流程测试成功！')
+
+# 清理分布式资源
+try:
+    compute_cleanup()
+except:
+    pass
 "
 
 echo "完整训练测试完成"
