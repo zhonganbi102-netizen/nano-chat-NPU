@@ -97,7 +97,7 @@ torchrun --nproc_per_node=4 \
     --master_port=29501 \
     --nnodes=1 \
     --node_rank=0 \
-    -m scripts.base_train \
+    scripts/base_train.py \
     --run=npu_4gpu_conservative \
     --depth=6 \
     --device_batch_size=2 \

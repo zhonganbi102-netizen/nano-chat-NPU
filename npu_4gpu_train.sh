@@ -96,7 +96,7 @@ EOL
 echo "4. 开始4NPU分布式训练..."
 python -c "import sys; sys.path.insert(0, '.'); import temp_npu_4gpu_patch" && \
 torchrun --nproc_per_node=4 --master_addr=127.0.0.1 --master_port=29500 \
-    -m scripts.base_train \
+    scripts/base_train.py \
     --run=npu_4gpu_train \
     --depth=8 \
     --device_batch_size=4 \
