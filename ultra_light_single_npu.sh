@@ -66,11 +66,7 @@ python -m scripts.base_train \
     --depth=4 \
     --device_batch_size=4 \
     --total_batch_size=4096 \
-    --max_steps=1000 \
-    --learning_rate=1e-4 \
-    --weight_decay=0.01 \
-    --compile=false \
-    --dtype=bfloat16
+    --num_iterations=1000
 
 echo "✅ 超轻量级训练完成！"
 echo "如果还是OOM，请检查:"

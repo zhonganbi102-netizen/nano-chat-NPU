@@ -58,10 +58,7 @@ def main():
             '--depth=6',
             '--device_batch_size=8',
             '--total_batch_size=8192',
-            '--max_steps=2000',
-            '--learning_rate=2e-4',
-            '--compile=false',
-            '--dtype=bfloat16'
+            '--num_iterations=2000'
         ]
         
         print("开始训练...")

@@ -26,6 +26,6 @@ python -m scripts.base_train \
     --depth=6 \
     --device_batch_size=8 \
     --total_batch_size=8192 \
-    --max_steps=1000
+    --num_iterations=1000
 
 echo "训练完成！"

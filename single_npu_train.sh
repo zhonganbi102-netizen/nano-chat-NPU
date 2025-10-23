@@ -68,10 +68,7 @@ python -m scripts.base_train \
     --depth=8 \
     --device_batch_size=16 \
     --total_batch_size=16384 \
-    --max_steps=5000 \
-    --learning_rate=3e-4 \
-    --weight_decay=0.1 \
-    --compile=false
+    --num_iterations=5000
 
 echo "5. 单NPU base训练完成！"
 
@@ -83,9 +80,7 @@ if [[ $continue_sft =~ ^[Yy]$ ]]; then
         --run=single_npu_sft \
         --device_batch_size=4 \
         --target_examples_per_step=16 \
-        --max_steps=2000 \
-        --learning_rate=1e-4 \
-        --compile=false
+        --num_iterations=2000
     
     echo "✅ SFT训练完成！"
 else
