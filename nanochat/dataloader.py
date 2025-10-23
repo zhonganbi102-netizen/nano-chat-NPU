@@ -16,7 +16,15 @@ def tokenizing_distributed_data_loader(B, T, split, tokenizer_threads=4, tokeniz
     bos_token = tokenizer.get_bos_token_id()
     # scratch buffer holds the tokens for one iteration
     token_buffer = deque() # we stream tokens on the right and pop from the left
-    scratch = torch.empty(needed_tokens, dtype=torch.int64, pin_memory=True)
+    
+    # NPU compatible pin_memory setting
+    try:
+        import torch_npu
+        use_pin_memory = not torch_npu.npu.is_available()  # Disable pin_memory for NPU
+    except ImportError:
+        use_pin_memory = True  # Enable pin_memory for CUDA/CPU
+        
+    scratch = torch.empty(needed_tokens, dtype=torch.int64, pin_memory=use_pin_memory)
 
     # Get current device - NPU compatible
     current_device = None
