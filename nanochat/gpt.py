@@ -243,7 +243,23 @@ class GPT(nn.Module):
             dict(params=embedding_params, lr=embedding_lr * dmodel_lr_scale),
         ]
         adamw_kwargs = dict(betas=(0.8, 0.95), eps=1e-10, weight_decay=weight_decay)
-        AdamWFactory = DistAdamW if ddp else partial(torch.optim.AdamW, fused=True)
+        
+        # NPU compatible AdamW setup
+        if ddp:
+            AdamWFactory = DistAdamW
+        else:
+            # Check if we're on NPU - disable fused for NPU compatibility
+            try:
+                import torch_npu
+                if torch_npu.npu.is_available():
+                    # NPU doesn't support fused AdamW
+                    AdamWFactory = partial(torch.optim.AdamW, fused=False)
+                else:
+                    AdamWFactory = partial(torch.optim.AdamW, fused=True)
+            except ImportError:
+                # No torch_npu, assume CUDA/CPU
+                AdamWFactory = partial(torch.optim.AdamW, fused=True)
+                
         adamw_optimizer = AdamWFactory(adam_groups, **adamw_kwargs)
         # Create the Muon optimizer for the linear layers
         muon_kwargs = dict(lr=matrix_lr, momentum=0.95)

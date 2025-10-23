@@ -5,8 +5,23 @@ Also a lot of borrowing of ideas from modded-nanogpt.
 import torch
 from torch import Tensor
 import torch.distributed as dist
+import os
 
-@torch.compile
+# NPU compatible compilation check
+def npu_compatible_compile(func):
+    """Decorator that conditionally applies torch.compile based on device"""
+    try:
+        import torch_npu
+        if torch_npu.npu.is_available() or os.environ.get("TORCH_COMPILE_DISABLE") == "1":
+            # Skip compilation for NPU or when explicitly disabled
+            return func
+        else:
+            return torch.compile(func)
+    except ImportError:
+        # torch_npu not available, use normal compilation
+        return torch.compile(func)
+
+@npu_compatible_compile
 def zeropower_via_newtonschulz5(G: Tensor, steps: int) -> Tensor:
     """
     Newton-Schulz iteration to compute the zeroth power / orthogonalization of G. We opt to use a

@@ -5,6 +5,7 @@ Not a general optimizer! But works for our specific use.
 import torch
 import torch.distributed as dist
 from torch import Tensor
+import os
 
 
 class DistAdamW(torch.optim.Optimizer):
@@ -16,9 +17,24 @@ class DistAdamW(torch.optim.Optimizer):
         defaults = dict(lr=lr, betas=betas, eps=eps, weight_decay=weight_decay)
         super().__init__(param_groups, defaults)
 
-    @torch.compile
+    def _npu_compatible_compile(self, func):
+        """NPU compatible compilation decorator"""
+        try:
+            import torch_npu
+            if torch_npu.npu.is_available() or os.environ.get("TORCH_COMPILE_DISABLE") == "1":
+                return func  # Skip compilation for NPU
+            else:
+                return torch.compile(func)
+        except ImportError:
+            return torch.compile(func)  # Normal compilation for non-NPU
+
     @torch.no_grad()
     def step(self):
+        # Apply compilation conditionally
+        compiled_step = self._npu_compatible_compile(self._step_impl)
+        return compiled_step()
+    
+    def _step_impl(self):
         rank = dist.get_rank()
         world_size = dist.get_world_size()
         reduce_scatter_futures: list[torch.Future] = []
