@@ -243,13 +243,11 @@ class GPT(nn.Module):
             dict(params=embedding_params, lr=embedding_lr * dmodel_lr_scale),
         ]
         adamw_kwargs = dict(betas=(0.8, 0.95), eps=1e-10, weight_decay=weight_decay)
-        # 临时修复：在NPU上使用标准AdamW避免reduce_scatter问题
-        AdamWFactory = partial(torch.optim.AdamW, fused=False)  # NPU上禁用fused
+        AdamWFactory = DistAdamW if ddp else partial(torch.optim.AdamW, fused=True)
         adamw_optimizer = AdamWFactory(adam_groups, **adamw_kwargs)
         # Create the Muon optimizer for the linear layers
         muon_kwargs = dict(lr=matrix_lr, momentum=0.95)
-        # 临时修复：在NPU上使用标准Muon避免分布式问题
-        MuonFactory = Muon
+        MuonFactory = DistMuon if ddp else Muon
         muon_optimizer = MuonFactory(matrix_params, **muon_kwargs)
         # Combine them the two optimizers into one list
         optimizers = [adamw_optimizer, muon_optimizer]
@@ -257,21 +255,6 @@ class GPT(nn.Module):
             for group in opt.param_groups:
                 group["initial_lr"] = group["lr"]
         return optimizers
-
-    def configure_optimizers(self, weight_decay=0.0, learning_rate=1e-4, device_type='cuda'):
-        """
-        兼容方法：简化的优化器配置，用于测试和简单训练
-        对于完整训练，建议使用 setup_optimizers 方法
-        """
-        # 简单的AdamW优化器配置
-        params = list(self.parameters())
-        if device_type == 'npu':
-            # NPU环境使用标准AdamW
-            optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay, betas=(0.9, 0.95))
-        else:
-            # 其他设备使用fused AdamW
-            optimizer = torch.optim.AdamW(params, lr=learning_rate, weight_decay=weight_decay, betas=(0.9, 0.95), fused=True)
-        return optimizer
 
     def forward(self, idx, targets=None, kv_cache=None, loss_reduction='mean'):
         B, T = idx.size()

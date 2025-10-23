@@ -44,16 +44,8 @@ def tokenizing_distributed_data_loader(B, T, split, tokenizer_threads=4, tokeniz
         inputs_cpu = scratch[:-1].to(dtype=torch.int32)
         targets_cpu = scratch[1:]
         # Reshape to 2D and move to device async
-        # Use device-agnostic approach - prefer NPU if available
-        try:
-            import torch_npu
-            if torch_npu.npu.is_available() and torch_npu.npu.device_count() > 0:
-                device = "npu"
-            else:
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-        except ImportError:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+        # Use device-agnostic approach
+        device = "npu" if torch.cuda.device_count() == 0 and 'torch_npu' in globals() else "cuda"
         inputs = inputs_cpu.view(B, T).to(device=device, dtype=torch.int32, non_blocking=True)
         targets = targets_cpu.view(B, T).to(device=device, dtype=torch.int64, non_blocking=True)
         yield inputs, targets

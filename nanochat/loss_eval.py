@@ -54,30 +54,10 @@ def evaluate_bpb(model, batches, steps, token_bytes):
     # sum reduce across all ranks
     world_size = dist.get_world_size() if dist.is_initialized() else 1
     if world_size > 1:
-        try:
-            # 添加同步点，确保所有进程都到达这里
-            dist.barrier()
-            
-            # 执行all_reduce操作，添加超时保护
-            dist.all_reduce(total_nats, op=dist.ReduceOp.SUM)
-            dist.all_reduce(total_bytes, op=dist.ReduceOp.SUM)
-            
-            # 再次同步确保操作完成
-            dist.barrier()
-            
-        except Exception as e:
-            print(f"[Rank {dist.get_rank()}] HCCL all_reduce 失败: {e}")
-            # 降级为单进程计算
-            print(f"[Rank {dist.get_rank()}] 降级为单进程评估模式")
-    
+        dist.all_reduce(total_nats, op=dist.ReduceOp.SUM)
+        dist.all_reduce(total_bytes, op=dist.ReduceOp.SUM)
     # move both to cpu, calculate bpb and return
     total_nats = total_nats.item()
     total_bytes = total_bytes.item()
-    
-    # 避免除零错误
-    if total_bytes == 0:
-        print(f"Warning: total_bytes is 0, returning inf for bpb")
-        return float('inf')
-    
     bpb = total_nats / (math.log(2) * total_bytes)
     return bpb

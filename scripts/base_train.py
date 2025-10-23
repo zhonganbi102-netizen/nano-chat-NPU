@@ -13,7 +13,6 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import time
 import wandb
 import torch
-import torch.distributed as dist
 
 from nanochat.gpt import GPT, GPTConfig
 from nanochat.dataloader import tokenizing_distributed_data_loader
@@ -101,11 +100,7 @@ with torch.device("meta"):
 model.to_empty(device=device)
 model.init_weights()
 orig_model = model # original, uncompiled model, for saving raw model state_dict
-# NPU兼容性：暂时禁用torch.compile
-if device_type == "npu":
-    print0("NPU detected: skipping torch.compile for compatibility")
-else:
-    model = torch.compile(model, dynamic=False) # TODO: dynamic True/False think through
+model = torch.compile(model, dynamic=False) # TODO: dynamic True/False think through
 num_params = sum(p.numel() for p in model.parameters())
 print0(f"Number of parameters: {num_params:,}")
 num_flops_per_token = model.estimate_flops()
@@ -133,43 +128,15 @@ print0(f"Total training FLOPs estimate: {num_flops_per_token * total_tokens:e}")
 
 # -----------------------------------------------------------------------------
 # Initialize the Optimizer (Muon for Linear layers, AdamW for embedding and lm_head)
-print0("🔧 初始化优化器...")
-try:
-    optimizers = model.setup_optimizers(unembedding_lr=unembedding_lr, embedding_lr=embedding_lr, matrix_lr=matrix_lr, weight_decay=weight_decay)
-    adamw_optimizer, muon_optimizer = optimizers
-    print0("✅ 优化器初始化成功")
-except Exception as e:
-    print0(f"❌ 优化器初始化失败: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+optimizers = model.setup_optimizers(unembedding_lr=unembedding_lr, embedding_lr=embedding_lr, matrix_lr=matrix_lr, weight_decay=weight_decay)
+adamw_optimizer, muon_optimizer = optimizers
 
 # Initialize the DataLoaders for train/val
-print0("🔄 初始化数据加载器...")
 base_dir = get_base_dir()
 tokens_dir = os.path.join(base_dir, "tokenized_data")
-
-print0("📊 创建训练数据加载器...")
-try:
-    train_loader = tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="train")
-    print0("✅ 训练数据加载器创建成功")
-except Exception as e:
-    print0(f"❌ 训练数据加载器创建失败: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
-
+train_loader = tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="train")
 build_val_loader = lambda: tokenizing_distributed_data_loader(device_batch_size, max_seq_len, split="val")
-
-print0("🎯 获取第一批训练数据...")
-try:
-    x, y = next(train_loader) # kick off load of the very first batch of data
-    print0(f"✅ 第一批数据获取成功: x.shape={x.shape}, y.shape={y.shape}, device={x.device}")
-except Exception as e:
-    print0(f"❌ 第一批数据获取失败: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+x, y = next(train_loader) # kick off load of the very first batch of data
 
 # -----------------------------------------------------------------------------
 # Set up hyperparameter schedulers
@@ -209,55 +176,35 @@ for step in range(num_iterations + 1):
 
     # once in a while: evaluate the val bpb (all ranks participate)
     if last_step or step % eval_every == 0:
-        # 确保所有进程都到达评估点
-        if ddp_world_size > 1 and dist.is_initialized():
-            dist.barrier()
-            print0(f"Step {step:05d} | 所有进程已同步，开始评估...")
-        
         model.eval()
         val_loader = build_val_loader()
         eval_steps = eval_tokens // (device_batch_size * max_seq_len * ddp_world_size)
-        
-        try:
-            with autocast_ctx:
-                val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
-            print0(f"Step {step:05d} | Validation bpb: {val_bpb:.4f}")
-            if val_bpb < min_val_bpb:
-                min_val_bpb = val_bpb
-            wandb_run.log({
-                "step": step,
-                "total_training_flops": flops_so_far,
-                "total_training_time": total_training_time,
-                "val/bpb": val_bpb,
-            })
-        except Exception as e:
-            print0(f"Step {step:05d} | 评估失败: {e}")
-            # 使用默认值继续训练
-            val_bpb = float('inf')
-            
+        with autocast_ctx:
+            val_bpb = evaluate_bpb(model, val_loader, eval_steps, token_bytes)
+        print0(f"Step {step:05d} | Validation bpb: {val_bpb:.4f}")
+        if val_bpb < min_val_bpb:
+            min_val_bpb = val_bpb
+        wandb_run.log({
+            "step": step,
+            "total_training_flops": flops_so_far,
+            "total_training_time": total_training_time,
+            "val/bpb": val_bpb,
+        })
         model.train()
 
     # once in a while: estimate the CORE metric (all ranks participate)
     # use the original uncompiled model because the inputs keep changing shape
-    results = None  # 初始化results变量
     if last_step or (step > 0 and step % core_metric_every == 0):
-        try:
-            model.eval()
-            with autocast_ctx:
-                results = evaluate_model(orig_model, tokenizer, device, max_per_task=core_metric_max_per_task)
-            print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
-            wandb_run.log({
-                "step": step,
-                "total_training_flops": flops_so_far,
-                "core_metric": results["core_metric"],
-                "centered_results": results["centered_results"],
-            })
-        except FileNotFoundError as e:
-            print0(f"Step {step:05d} | CORE评估跳过: 评估文件不存在 ({e})")
-            results = {"core_metric": -1, "centered_results": {}}  # 提供默认值
-        except Exception as e:
-            print0(f"Step {step:05d} | CORE评估失败: {e}")
-            results = {"core_metric": -1, "centered_results": {}}  # 提供默认值
+        model.eval()
+        with autocast_ctx:
+            results = evaluate_model(orig_model, tokenizer, device, max_per_task=core_metric_max_per_task)
+        print0(f"Step {step:05d} | CORE metric: {results['core_metric']:.4f}")
+        wandb_run.log({
+            "step": step,
+            "total_training_flops": flops_so_far,
+            "core_metric": results["core_metric"],
+            "centered_results": results["centered_results"],
+        })
         model.train()
 
     # once in a while: sample from the model (only on master process)
@@ -395,7 +342,7 @@ get_report().log(section="Base model training", data=[
     { # stats about training outcomes
         "Minimum validation bpb": min_val_bpb,
         "Final validation bpb": val_bpb,
-        "CORE metric estimate": results["core_metric"] if results else "N/A",
+        "CORE metric estimate": results["core_metric"],
         "MFU %": f"{mfu:.2f}%",
         "Total training flops": f"{flops_so_far:e}",
         "Total training time": f"{total_training_time/60:.2f}m",
