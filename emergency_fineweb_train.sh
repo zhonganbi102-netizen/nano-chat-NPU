@@ -15,20 +15,25 @@ sleep 20  # 更长等待时间
 # 2. 完整环境设置 (基于成功配置)
 echo "2. 设置完整NPU环境..."
 
-# 找到ASCEND_HOME
-if [ -d "/usr/local/Ascend/ascend-toolkit/latest" ]; then
-    export ASCEND_HOME="/usr/local/Ascend/ascend-toolkit/latest"
-elif [ -d "/usr/local/Ascend/ascend-toolkit" ]; then
-    export ASCEND_HOME="/usr/local/Ascend/ascend-toolkit"
+# 动态查找set_env.sh
+echo "🔍 查找set_env.sh文件..."
+./find_ascend_env.sh
+if [ -f ".ascend_env_path" ]; then
+    source .ascend_env_path
+    echo "✅ 找到set_env.sh: $ASCEND_SET_ENV_PATH"
+    source "$ASCEND_SET_ENV_PATH"
+    
+    # 从set_env.sh路径推断ASCEND_HOME
+    export ASCEND_HOME="$(dirname "$ASCEND_SET_ENV_PATH")"
+    echo "✅ ASCEND_HOME: $ASCEND_HOME"
 else
-    echo "❌ 找不到Ascend工具包"
-    exit 1
+    echo "❌ 找不到set_env.sh，手动设置环境..."
+    # 手动设置基本环境变量
+    export ASCEND_HOME="/usr/local/Ascend/ascend-toolkit"
+    export PATH="/usr/local/Ascend/ascend-toolkit/latest/bin:$PATH"
+    export LD_LIBRARY_PATH="/usr/local/Ascend/ascend-toolkit/latest/lib64:$LD_LIBRARY_PATH"
+    export PYTHONPATH="/usr/local/Ascend/ascend-toolkit/latest/python/site-packages:$PYTHONPATH"
 fi
-
-echo "✅ ASCEND_HOME: $ASCEND_HOME"
-
-# 设置所有必要的环境变量
-source $ASCEND_HOME/set_env.sh
 
 # 显式设置关键路径
 export PYTHONPATH="$ASCEND_HOME/python/site-packages:$PYTHONPATH"
