@@ -17,7 +17,7 @@ export WORLD_SIZE=4
 export MASTER_ADDR=127.0.0.1
 export MASTER_PORT=29522
 export TORCH_COMPILE_DISABLE=1
-export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:16  # 极小内存分割
+export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:32  # NPU最小要求>20
 export HCCL_WHITELIST_DISABLE=1
 export HCCL_IF_IP=127.0.0.1
 
