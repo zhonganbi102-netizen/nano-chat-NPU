@@ -100,7 +100,14 @@ with torch.device("meta"):
 model.to_empty(device=device)
 model.init_weights()
 orig_model = model # original, uncompiled model, for saving raw model state_dict
-model = torch.compile(model, dynamic=False) # TODO: dynamic True/False think through
+
+# NPU compatible compilation check
+if device.type == "npu" or os.environ.get("TORCH_COMPILE_DISABLE") == "1":
+    print0("Skipping torch.compile for NPU compatibility")
+    # Keep model uncompiled for NPU
+else:
+    model = torch.compile(model, dynamic=False) # TODO: dynamic True/False think through
+    
 num_params = sum(p.numel() for p in model.parameters())
 print0(f"Number of parameters: {num_params:,}")
 num_flops_per_token = model.estimate_flops()
