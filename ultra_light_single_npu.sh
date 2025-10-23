@@ -65,7 +65,7 @@ python -m scripts.base_train \
     --run=ultra_light_npu \
     --depth=4 \
     --device_batch_size=4 \
-    --total_batch_size=4096 \
+    --total_batch_size=8192 \
     --num_iterations=1000
 
 echo "✅ 超轻量级训练完成！"

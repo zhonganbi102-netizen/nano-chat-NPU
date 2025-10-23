@@ -67,8 +67,8 @@ python -m scripts.base_train \
     --run=single_npu_base \
     --depth=8 \
     --device_batch_size=16 \
-    --total_batch_size=16384 \
-    --num_iterations=5000
+    --total_batch_size=32768 \
+    --num_iterations=3000
 
 echo "5. 单NPU base训练完成！"
 

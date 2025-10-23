@@ -25,7 +25,7 @@ python -m scripts.base_train \
     --run=minimal_npu \
     --depth=6 \
     --device_batch_size=8 \
-    --total_batch_size=8192 \
+    --total_batch_size=16384 \
     --num_iterations=1000
 
 echo "训练完成！"
