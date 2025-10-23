@@ -18,6 +18,21 @@ def tokenizing_distributed_data_loader(B, T, split, tokenizer_threads=4, tokeniz
     token_buffer = deque() # we stream tokens on the right and pop from the left
     scratch = torch.empty(needed_tokens, dtype=torch.int64, pin_memory=True)
 
+    # Get current device - NPU compatible
+    current_device = None
+    try:
+        import torch_npu
+        if torch_npu.npu.is_available():
+            current_device = torch.device(f"npu:{torch_npu.npu.current_device()}")
+    except ImportError:
+        pass
+    
+    if current_device is None:
+        if torch.cuda.is_available():
+            current_device = torch.device(f"cuda:{torch.cuda.current_device()}")
+        else:
+            current_device = torch.device("cpu")
+
     # infinite iterator over document batches
     def document_batches():
         while True:
@@ -43,9 +58,8 @@ def tokenizing_distributed_data_loader(B, T, split, tokenizer_threads=4, tokeniz
         # Create the inputs/targets as 1D tensors
         inputs_cpu = scratch[:-1].to(dtype=torch.int32)
         targets_cpu = scratch[1:]
-        # Reshape to 2D and move to device async
-        # Use device-agnostic approach
-        device = "npu" if torch.cuda.device_count() == 0 and 'torch_npu' in globals() else "cuda"
-        inputs = inputs_cpu.view(B, T).to(device=device, dtype=torch.int32, non_blocking=True)
-        targets = targets_cpu.view(B, T).to(device=device, dtype=torch.int64, non_blocking=True)
+                
+        # Reshape to 2D and move to device
+        inputs = inputs_cpu.view(B, T).to(device=current_device, dtype=torch.int32, non_blocking=True)
+        targets = targets_cpu.view(B, T).to(device=current_device, dtype=torch.int64, non_blocking=True)
         yield inputs, targets
