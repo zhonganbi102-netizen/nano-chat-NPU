@@ -57,35 +57,64 @@ else
     echo "⚠️ TBE验证失败，但继续尝试..."
 fi
 
-# 4. 单NPU优化器补丁
+# 4. 单NPU优化器补丁 - 更安全的版本
 echo "4. 创建单NPU优化器补丁..."
 cat > temp_single_npu_patch.py << 'EOF'
 import torch
-from nanochat.gpt import GPT
+import sys
+import os
 
-def single_npu_optimizers(self, unembedding_lr=0.001, embedding_lr=0.01, matrix_lr=0.01, weight_decay=0.0):
-    print("🚀 单NPU FineWeb优化器: 避免分布式复杂性")
-    
-    # 获取所有参数
-    params = list(self.parameters())
-    
-    # 单一AdamW优化器，简化配置
-    optimizer = torch.optim.AdamW(
-        params, 
-        lr=0.001,  # 固定学习率
-        weight_decay=0.0,
-        betas=(0.9, 0.95),
-        eps=1e-8,
-        foreach=False,  # 关闭foreach
-        fused=False     # 关闭fused
-    )
-    
-    print(f"  ✅ 单NPU优化器: lr=0.001, {len(params)}个参数")
-    return [optimizer]
+# 确保可以找到nanochat模块
+sys.path.insert(0, '.')
 
-# 应用补丁
-GPT.setup_optimizers = single_npu_optimizers
-print("✅ 单NPU FineWeb优化器补丁已应用")
+print("🔧 导入nanochat模块...")
+try:
+    from nanochat.gpt import GPT
+    print("✅ GPT类导入成功")
+except Exception as e:
+    print(f"❌ GPT类导入失败: {e}")
+    sys.exit(1)
+
+def single_npu_optimizers_safe(self, unembedding_lr=0.001, embedding_lr=0.01, matrix_lr=0.01, weight_decay=0.0):
+    """安全的单NPU优化器实现"""
+    print("🚀 单NPU FineWeb优化器: 纯AdamW实现")
+    
+    try:
+        # 获取所有参数
+        params = list(self.parameters())
+        param_count = sum(p.numel() for p in params)
+        
+        print(f"  📊 参数统计: {len(params)}个张量, {param_count:,}个参数")
+        
+        # 使用最基础的AdamW配置
+        optimizer = torch.optim.AdamW(
+            params, 
+            lr=0.0005,      # 保守的学习率
+            weight_decay=0.01,
+            betas=(0.9, 0.999),  # 标准beta值
+            eps=1e-8,
+            foreach=False,  # NPU兼容性
+            fused=False,    # NPU兼容性
+            amsgrad=False   # 关闭额外功能
+        )
+        
+        print(f"  ✅ AdamW优化器创建成功: lr=0.0005")
+        return [optimizer]
+        
+    except Exception as e:
+        print(f"  ❌ 优化器创建失败: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+# 安全应用补丁
+try:
+    print("🔧 应用单NPU优化器补丁...")
+    GPT.setup_optimizers = single_npu_optimizers_safe
+    print("✅ 单NPU FineWeb优化器补丁已应用")
+except Exception as e:
+    print(f"❌ 补丁应用失败: {e}")
+    sys.exit(1)
 EOF
 
 # 5. 训练tokenizer
@@ -103,28 +132,35 @@ echo "🚀 启动单NPU FineWeb训练..."
 echo ""
 echo "📊 训练配置:"
 echo "  - 单NPU训练 (避免分布式)"
-echo "  - 模型深度: 8层"
-echo "  - 批次大小: 8 (单NPU)"
-echo "  - 总批次: 16384"
-echo "  - 训练步数: 500步"
-echo "  - 预计时间: 15-30分钟"
+echo "  - 模型深度: 6层 (更保守)"
+echo "  - 批次大小: 4 (更小batch)"
+echo "  - 总批次: 8192 (更小)"
+echo "  - 训练步数: 100步 (测试)"
+echo "  - 预计时间: 5-10分钟"
 echo ""
 
-# 直接运行base_train.py (无torchrun)
-python -c "import temp_single_npu_patch" && \
+# 导入补丁并运行训练
+echo "导入优化器补丁..."
+python -c "
+import temp_single_npu_patch
+print('✅ 补丁导入成功')
+"
+
+echo "开始训练..."
 python -m scripts.base_train \
-    --run=single_npu_fineweb_d8 \
-    --depth=8 \
-    --device_batch_size=8 \
-    --total_batch_size=16384 \
-    --num_iterations=500 \
-    --embedding_lr=0.01 \
-    --unembedding_lr=0.001 \
-    --matrix_lr=0.005 \
-    --grad_clip=0.5 \
-    --eval_every=100 \
-    --sample_every=250 \
-    --core_metric_every=999999
+    --run=single_npu_fineweb_test \
+    --depth=6 \
+    --device_batch_size=4 \
+    --total_batch_size=8192 \
+    --num_iterations=100 \
+    --embedding_lr=0.001 \
+    --unembedding_lr=0.0001 \
+    --matrix_lr=0.0005 \
+    --grad_clip=1.0 \
+    --eval_every=50 \
+    --sample_every=999999 \
+    --core_metric_every=999999 \
+    --verbose
 
 # 7. 清理
 rm -f temp_single_npu_patch.py

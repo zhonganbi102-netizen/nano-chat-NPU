@@ -28,43 +28,85 @@ export HCCL_WHITELIST_DISABLE=1
 export HCCL_IF_IP=127.0.0.1
 export NPU_CALCULATE_DEVICE=0,1,2,3
 
-# 4. 创建内存友好的优化器补丁
-echo "3. 创建内存友好优化器补丁..."
-cat > temp_conservative_patch.py << EOF
+# 4. 创建NPU兼容的优化器补丁（完全避免Muon）
+echo "3. 创建NPU兼容优化器补丁..."
+cat > npu_adamw_patch.py << EOF
 import torch
 from nanochat.gpt import GPT
 
-def conservative_optimizers(self, unembedding_lr=0.001, embedding_lr=0.01, matrix_lr=0.01, weight_decay=0.0):
-    print("保守内存优化器: AdamW + 低内存配置")
-    embedding_params = [p for n, p in self.named_parameters() if 'emb_tok' in n]
-    other_params = [p for n, p in self.named_parameters() if 'emb_tok' not in n]
-    opts = []
+def npu_compatible_optimizers(self, unembedding_lr=0.001, embedding_lr=0.01, matrix_lr=0.01, weight_decay=0.0):
+    """
+    NPU兼容的优化器 - 完全替代Muon
+    使用标准AdamW，避免所有NPU不兼容的优化器
+    """
+    print("🔧 使用NPU兼容的AdamW优化器（替代Muon）")
     
-    # 使用更保守的学习率
+    # 获取所有参数并分组
+    embedding_params = []
+    unembedding_params = []
+    matrix_params = []
+    
+    for name, param in self.named_parameters():
+        if 'emb_tok' in name:
+            embedding_params.append(param)
+            print(f"  Embedding参数: {name}, shape: {param.shape}")
+        elif 'unembed' in name:
+            unembedding_params.append(param)
+            print(f"  Unembedding参数: {name}, shape: {param.shape}")
+        else:
+            matrix_params.append(param)
+            print(f"  Matrix参数: {name}, shape: {param.shape}")
+    
+    optimizers = []
+    
+    # Embedding优化器
     if embedding_params:
-        opts.append(torch.optim.AdamW(
-            [{'params': embedding_params, 'lr': embedding_lr*0.5, 'initial_lr': embedding_lr*0.5}], 
-            lr=embedding_lr*0.5, 
-            weight_decay=weight_decay, 
+        emb_opt = torch.optim.AdamW(
+            embedding_params,
+            lr=embedding_lr,
+            weight_decay=weight_decay,
             betas=(0.9, 0.95),
-            eps=1e-6,
-            foreach=False  # 关闭foreach优化以节省内存
-        ))
+            eps=1e-8,
+            foreach=False,  # NPU兼容性
+            fused=False     # 禁用fused优化
+        )
+        optimizers.append(emb_opt)
+        print(f"  ✅ Embedding AdamW: lr={embedding_lr}, params={len(embedding_params)}")
     
-    if other_params:
-        opts.append(torch.optim.AdamW(
-            [{'params': other_params, 'lr': matrix_lr*0.5, 'initial_lr': matrix_lr*0.5}], 
-            lr=matrix_lr*0.5, 
-            weight_decay=0.0, 
+    # Unembedding优化器
+    if unembedding_params:
+        unemb_opt = torch.optim.AdamW(
+            unembedding_params,
+            lr=unembedding_lr,
+            weight_decay=0.0,
             betas=(0.9, 0.95),
-            eps=1e-6,
-            foreach=False  # 关闭foreach优化以节省内存
-        ))
+            eps=1e-8,
+            foreach=False,  # NPU兼容性
+            fused=False     # 禁用fused优化
+        )
+        optimizers.append(unemb_opt)
+        print(f"  ✅ Unembedding AdamW: lr={unembedding_lr}, params={len(unembedding_params)}")
     
-    return opts
+    # Matrix优化器
+    if matrix_params:
+        matrix_opt = torch.optim.AdamW(
+            matrix_params,
+            lr=matrix_lr,
+            weight_decay=0.0,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            foreach=False,  # NPU兼容性
+            fused=False     # 禁用fused优化
+        )
+        optimizers.append(matrix_opt)
+        print(f"  ✅ Matrix AdamW: lr={matrix_lr}, params={len(matrix_params)}")
+    
+    print(f"🎯 总共创建了 {len(optimizers)} 个NPU兼容的AdamW优化器")
+    return optimizers
 
-GPT.setup_optimizers = conservative_optimizers
-print("✅ 保守内存优化器补丁已应用")
+# 替换原始的setup_optimizers方法
+GPT.setup_optimizers = npu_compatible_optimizers
+print("✅ NPU兼容优化器补丁已应用（完全避免Muon）")
 EOF
 
 # 5. 训练tokenizer
@@ -86,26 +128,26 @@ echo "  - 内存优化: 启用"
 echo "  - 预计时间: 1-2小时"
 echo ""
 
-python -c "import temp_conservative_patch" && \
+python -c "import npu_adamw_patch" && \
 PYTHONPATH=. torchrun --nproc_per_node=4 \
     --master_addr=127.0.0.1 \
     --master_port=29521 \
     scripts/base_train.py \
-    --model_tag=fineweb_conservative_d8 \
+    --model_tag=fineweb_no_muon_d8 \
     --depth=8 \
     --device_batch_size=4 \
     --total_batch_size=65536 \
     --num_iterations=2000 \
-    --embedding_lr=0.1 \
-    --unembedding_lr=0.002 \
-    --matrix_lr=0.01 \
-    --grad_clip=0.5 \
+    --embedding_lr=0.01 \
+    --unembedding_lr=0.001 \
+    --matrix_lr=0.005 \
+    --grad_clip=0.8 \
     --eval_every=200 \
     --sample_every=800 \
     --core_metric_every=999999
 
 # 7. 清理
-rm -f temp_conservative_patch.py
+rm -f npu_adamw_patch.py
 
 echo ""
 echo "🎉 保守内存FineWeb训练完成！"
