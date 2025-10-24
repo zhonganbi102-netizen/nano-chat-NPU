@@ -21,7 +21,7 @@ export MASTER_ADDR=127.0.0.1
 export MASTER_PORT=29700
 
 # 内存和编译优化
-export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:32
+export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:64  # NPU最小要求>20MB
 export NPU_COMPILE_DISABLE=1
 export TORCH_NPU_DISABLE_LAZY_INIT=1
 

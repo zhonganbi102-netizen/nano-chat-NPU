@@ -25,14 +25,14 @@ export LOCAL_RANK=0
 export MASTER_ADDR=127.0.0.1
 export MASTER_PORT=29500
 
-# 关键内存优化设置
-export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:32
+# 关键内存优化设置 - NPU要求内存分片必须 > 20MB
+export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:64
 export NPU_COMPILE_DISABLE=1
 export CUDA_LAUNCH_BLOCKING=1
 
 echo "超轻量级配置:"
 echo "  使用NPU: 0"
-echo "  内存分片: 32MB"
+echo "  内存分片: 64MB (NPU最小要求 > 20MB)"
 echo "  编译优化: 禁用"
 
 # 3. 检查NPU状态

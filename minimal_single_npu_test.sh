@@ -13,7 +13,7 @@ echo "1. 设置环境..."
 source /usr/local/Ascend/ascend-toolkit/set_env.sh
 
 export ASCEND_RT_VISIBLE_DEVICES=0
-export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:32
+export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:64  # NPU最小要求>20MB
 export NPU_COMPILE_DISABLE=1
 export TORCH_COMPILE_DISABLE=1
 export PYTHONUNBUFFERED=1
@@ -78,8 +78,7 @@ timeout 300 python -m scripts.base_train \
     --matrix_lr=0.001 \
     --eval_every=999999 \
     --sample_every=999999 \
-    --core_metric_every=999999 \
-    --verbose
+    --core_metric_every=999999
 
 echo ""
 if [ $? -eq 0 ]; then
