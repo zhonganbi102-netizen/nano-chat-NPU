@@ -290,6 +290,16 @@ NPU 平台相对于 GPU 基准的性能保持率约为 **75-85%**，这是一个
 
 训练分为三个主要阶段，每个阶段都由一个独立的脚本控制。请按顺序执行：
 
+**前置条件: BASE 模型准备**
+
+在开始训练前，需要确保已有预训练的 BASE 模型。BASE 模型应位于 `/mnt/linxid615/bza/nanochat-models/base_checkpoints/d18/` 目录下，包含 `model_013351.pt` 等检查点文件。
+
+如果没有 BASE 模型，需要先运行基础预训练：
+```bash
+# 注意：BASE 训练需要大量时间和数据，建议使用已训练好的模型
+bash ultimate_8npu_speedrun.sh  # 包含完整的 BASE 训练流程
+```
+
 **第一阶段: 中间训练 (Mid-Training)**
 
 此阶段在预训练的 BASE 模型基础上进行，使用 `SmolTalk`, `MMLU`, `GSM8K` 等数据集进行初步的能力增强。
