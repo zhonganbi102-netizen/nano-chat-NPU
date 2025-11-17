@@ -210,7 +210,405 @@ NPU 的架构和显存管理机制与 GPU 不同，直接套用 GPU 的批次大
 
 ---
 
-## 3. 关键 Bug 与解决方案汇总
+## 3. 详细代码修改清单
+
+适配 NPU 的过程非常**费劲**，需要在多个文件中进行系统性的修改。本节详细列出所有需要修改的代码位置和具体改动。
+
+### 3.1. 核心初始化函数 (`nanochat/common.py`)
+
+**⚠️ 重要提示**: 原版 `nanochat/common.py` 中的 `compute_init()` 函数硬编码了 CUDA 支持，必须修改才能支持 NPU。
+
+**原版代码** (第 92-122 行):
+```python
+def compute_init():
+    """Basic initialization that we keep doing over and over, so make common."""
+    
+    # CUDA is currently required
+    assert torch.cuda.is_available(), "CUDA is needed for a distributed run atm"
+    
+    # Reproducibility
+    torch.manual_seed(42)
+    torch.cuda.manual_seed(42)  # ❌ 硬编码 CUDA
+    
+    # Distributed setup
+    ddp, ddp_rank, ddp_local_rank, ddp_world_size = get_dist_info()
+    if ddp:
+        device = torch.device("cuda", ddp_local_rank)  # ❌ 硬编码 cuda
+        torch.cuda.set_device(device)  # ❌ 硬编码 CUDA API
+        dist.init_process_group(backend="nccl", device_id=device)  # ❌ 硬编码 NCCL
+        dist.barrier()
+    else:
+        device = torch.device("cuda")  # ❌ 硬编码 cuda
+    
+    return ddp, ddp_rank, ddp_local_rank, ddp_world_size, device
+```
+
+**NPU 适配版本** (需要修改为):
+```python
+def compute_init():
+    """Basic initialization that we keep doing over and over, so make common."""
+    
+    # 检测设备类型（NPU 或 CUDA）
+    has_npu = hasattr(torch, 'npu') and torch.npu.is_available()
+    has_cuda = torch.cuda.is_available()
+    
+    if not (has_npu or has_cuda):
+        raise RuntimeError("Neither NPU nor CUDA is available")
+    
+    # Reproducibility
+    torch.manual_seed(42)
+    if has_npu:
+        torch.npu.manual_seed(42)  # ✅ NPU 支持
+    if has_cuda:
+        torch.cuda.manual_seed(42)  # ✅ 保留 CUDA 支持
+    
+    # Distributed setup
+    ddp, ddp_rank, ddp_local_rank, ddp_world_size = get_dist_info()
+    if ddp:
+        if has_npu:
+            device = torch.device("npu", ddp_local_rank)  # ✅ NPU 设备
+            backend = "hccl"  # ✅ HCCL 后端
+        else:
+            device = torch.device("cuda", ddp_local_rank)
+            backend = "nccl"
+        
+        # 根据设备类型设置默认设备
+        if has_npu:
+            torch.npu.set_device(device)  # ✅ NPU API
+        else:
+            torch.cuda.set_device(device)
+        
+        dist.init_process_group(backend=backend, device_id=device)  # ✅ 动态后端
+        dist.barrier()
+    else:
+        if has_npu:
+            device = torch.device("npu")  # ✅ NPU 设备
+        else:
+            device = torch.device("cuda")
+    
+    return ddp, ddp_rank, ddp_local_rank, ddp_world_size, device
+```
+
+**修改难点**:
+- 需要同时支持 NPU 和 CUDA，不能简单替换
+- 设备 API 不同：`torch.cuda.*` vs `torch.npu.*`
+- 分布式后端不同：`nccl` vs `hccl`
+- 需要处理各种边界情况（单卡、多卡、混合环境）
+
+### 3.2. 训练脚本修改 (`scripts/*.py`)
+
+所有训练脚本都需要进行以下修改：
+
+#### 3.2.1. 环境变量配置（每个脚本开头）
+
+**修改位置**: `scripts/mid_train.py`, `scripts/chat_sft.py`, `scripts/chat_rl.py`, `scripts/base_train_muon_fixed.py` 等
+
+**添加代码** (第 14-24 行):
+```python
+import os
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+
+# ✅ NPU稳定性环境变量 + 内存优化（必须添加）
+if "npu" in str(os.environ.get("DEVICE", "")).lower() or os.path.exists("/usr/local/Ascend"):
+    os.environ["HCCL_WHITELIST_DISABLE"] = "1"
+    os.environ["TASK_QUEUE_ENABLE"] = "0"  # 减少TBE任务队列压力
+    os.environ["ASCEND_LAUNCH_BLOCKING"] = "1"  # 启用同步模式
+    os.environ["ASCEND_GLOBAL_LOG_LEVEL"] = "1"  # 减少日志输出
+    os.environ["ASCEND_RT_VISIBLE_DEVICES"] = "0,1,2,3,4,5,6,7"
+    os.environ["NPU_CALCULATE_DEVICE"] = "0,1,2,3,4,5,6,7"
+    os.environ["ASCEND_GLOBAL_EVENT_ENABLE"] = "0"  # 减少事件开销
+    print("🔧 NPU环境优化变量已设置（含内存优化）")
+```
+
+**为什么费劲**: 这些环境变量必须在导入 `torch` 之前设置，否则无效。每个脚本都要加，容易遗漏。
+
+#### 3.2.2. 设备类型检测和 Autocast 适配
+
+**修改位置**: 所有训练脚本的初始化部分
+
+**原版代码**:
+```python
+dtype = torch.float32 if dtype == 'float32' else torch.bfloat16
+autocast_ctx = torch.amp.autocast(device_type="cuda", dtype=dtype)  # ❌ 硬编码 cuda
+```
+
+**NPU 适配版本**:
+```python
+dtype = torch.float32 if dtype == 'float32' else torch.bfloat16
+device_type = "npu" if device.type == "npu" else "cuda"  # ✅ 动态检测
+autocast_ctx = torch.amp.autocast(device_type=device_type, dtype=dtype)  # ✅ 动态设备类型
+```
+
+**为什么费劲**: 需要在每个脚本中重复修改，而且容易忘记修改某些地方。
+
+#### 3.2.3. torch.compile 禁用
+
+**修改位置**: 所有训练脚本的模型编译部分
+
+**原版代码**:
+```python
+model = torch.compile(model, dynamic=False)  # ❌ NPU 不支持
+```
+
+**NPU 适配版本**:
+```python
+# ✅ NPU compatible compilation check
+if device.type == "npu" or os.environ.get("TORCH_COMPILE_DISABLE") == "1":
+    print0("Skipping torch.compile for NPU compatibility")
+    # Keep model uncompiled for NPU
+    if device.type == "npu":
+        print0("🔧 配置NPU稳定性设置...")
+        import torch_npu
+        # 启用内存回收
+        torch_npu.npu.empty_cache()
+        # 设置NPU优化选项
+        torch_npu.npu.set_option({"ACL_OP_SELECT_IMPL_MODE": "high_precision"})
+        torch_npu.npu.set_option({"ACL_OPTYPELIST_FOR_IMPLMODE": "Dropout"})
+else:
+    model = torch.compile(model, dynamic=False)
+```
+
+**为什么费劲**: 
+- 需要检查每个使用 `torch.compile` 的地方
+- NPU 不支持编译，但错误信息不明显，容易浪费时间调试
+- 需要添加 NPU 特定的优化配置
+
+#### 3.2.4. 内存管理 API 替换
+
+**修改位置**: 训练循环中的内存清理代码
+
+**原版代码**:
+```python
+torch.cuda.empty_cache()  # ❌ CUDA API
+torch.cuda.synchronize()  # ❌ CUDA API
+current_memory = torch.cuda.memory_allocated() / 1024 / 1024  # ❌ CUDA API
+```
+
+**NPU 适配版本**:
+```python
+# ✅ 需要根据设备类型选择 API
+if device.type == "npu":
+    import torch_npu
+    torch_npu.npu.empty_cache()
+    torch_npu.npu.synchronize()
+    current_memory = torch_npu.npu.memory_allocated() / 1024 / 1024
+else:
+    torch.cuda.empty_cache()
+    torch.cuda.synchronize()
+    current_memory = torch.cuda.memory_allocated() / 1024 / 1024
+```
+
+**为什么费劲**: 代码中可能有几十处内存管理调用，需要逐一检查并修改。
+
+### 3.3. 优化器适配（最复杂的部分）
+
+**修改位置**: `scripts/base_train_muon_fixed.py`, `scripts/mid_train.py`, `scripts/chat_sft.py`
+
+**原版代码** (简化版):
+```python
+# 简单的参数分组
+optimizer = model.setup_optimizers(...)  # ❌ 内部使用 DistributedAdamW，NPU 不兼容
+```
+
+**NPU 适配版本** (完整实现，约 200 行代码):
+```python
+# ✅ 智能混合优化器配置（保留Muon，解决分布式问题）
+print0("🔧 智能混合优化器配置（保留Muon，解决分布式问题）")
+print0("=" * 70)
+
+# 1. 收集所有参数并分类
+embedding_params = []
+unembedding_params = []
+matrix_params_all = []
+
+for name, param in model.named_parameters():
+    if param.requires_grad:
+        if 'wte' in name:
+            embedding_params.append(param)
+        elif 'lm_head' in name:
+            unembedding_params.append(param)
+        else:
+            if param.ndim == 2:  # Muon只支持2D参数
+                matrix_params_all.append((name, param))
+
+# 2. 分析哪些参数兼容 Muon（核心难点！）
+muon_compatible_params = []
+muon_incompatible_params = []
+
+if ddp:
+    world_size = ddp_world_size
+    for name, param in matrix_params_all:
+        # ✅ 关键检查：参数元素数必须能被 world_size 整除
+        # 这是 reduce_scatter 的核心要求，NPU 上更严格
+        if param.numel() % world_size == 0:
+            muon_compatible_params.append(param)
+        else:
+            muon_incompatible_params.append(param)
+else:
+    muon_compatible_params = [p for _, p in matrix_params_all]
+
+# 3. 创建混合优化器
+optimizers = []
+
+# AdamW 用于不兼容的参数
+adamw_param_groups = [
+    {'params': embedding_params, 'lr': embedding_lr, ...},
+    {'params': unembedding_params, 'lr': unembedding_lr, ...}
+]
+
+if muon_incompatible_params:
+    adamw_param_groups.append({
+        'params': muon_incompatible_params, 
+        'lr': matrix_lr, ...
+    })
+
+adamw_optimizer = torch.optim.AdamW(adamw_param_groups, ...)
+optimizers.append(adamw_optimizer)
+
+# 4. Muon 用于兼容的参数（需要异常处理）
+if muon_compatible_params:
+    try:
+        if ddp:
+            from nanochat.muon import DistMuon
+            muon_optimizer = DistMuon(muon_compatible_params, ...)
+        else:
+            from nanochat.muon import Muon
+            muon_optimizer = Muon(muon_compatible_params, ...)
+        
+        # ✅ 必须添加 initial_lr（学习率调度器需要）
+        for group in muon_optimizer.param_groups:
+            group['initial_lr'] = matrix_lr
+        
+        optimizers.append(muon_optimizer)
+    except Exception as e:
+        # ✅ 降级策略：Muon 失败时全部使用 AdamW
+        print0(f"⚠️  Muon创建失败: {e}")
+        print0(f"⚠️  降级：所有matrix参数使用AdamW")
+        # ... 降级逻辑
+```
+
+**为什么最费劲**:
+1. **参数兼容性检查**: 需要理解 `reduce_scatter` 的工作原理，知道为什么参数数量必须被 `world_size` 整除
+2. **异常处理**: Muon 在 NPU 上可能失败，需要完整的降级策略
+3. **学习率调度器兼容**: 需要手动添加 `initial_lr` 字段
+4. **代码量大**: 每个训练脚本都要添加约 200 行优化器配置代码
+5. **调试困难**: 优化器问题通常表现为训练不稳定或性能下降，不容易定位
+
+### 3.4. 批次大小调整
+
+**修改位置**: 所有训练脚本的超参数配置部分
+
+**原版代码** (GPU 配置):
+```python
+device_batch_size = 32  # 8xH100 的标准配置
+```
+
+**NPU 适配版本**:
+```python
+# ✅ NPU内存优化配置（8NPU分布式）
+device_batch_size = 8   # mid_train: 8NPU × 8 = 64 total
+device_batch_size = 4   # chat_sft: 8NPU × 4 = 32 total  
+device_batch_size = 4   # chat_rl: 8NPU × 4 = 32 total
+```
+
+**为什么费劲**:
+- 需要通过大量实验才能找到最优值
+- 不同训练阶段的最优值不同
+- OOM 错误信息不明确，需要反复调整
+- 需要重新计算 `grad_accum_steps` 和 `total_batch_size`
+
+### 3.5. 启动脚本修改
+
+**修改位置**: `start_mid_train_fixed.sh`, `start_chat_sft_fixed.sh`, `start_chat_rl_fixed.sh`
+
+**原版代码** (简化):
+```bash
+torchrun --standalone --nproc_per_node=8 -m scripts.mid_train
+```
+
+**NPU 适配版本**:
+```bash
+#!/bin/bash
+
+# ✅ 必须设置的环境变量（几十行）
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+export PYTORCH_NPU_ALLOC_CONF=max_split_size_mb:512
+export HCCL_CONNECT_TIMEOUT=7200
+export HCCL_EXEC_TIMEOUT=7200
+export HCCL_WHITELIST_DISABLE=1
+export ASCEND_LAUNCH_BLOCKING=1
+export TORCH_COMPILE_DISABLE=1
+export MASTER_PORT=29500  # ✅ 每个阶段不同端口，避免冲突
+export HF_ENDPOINT=https://hf-mirror.com  # ✅ 国内镜像
+
+# ✅ 检查 NPU 环境
+if [ ! -d "/usr/local/Ascend" ]; then
+    echo "错误: 未检测到 NPU 环境"
+    exit 1
+fi
+
+# ✅ 清理 NPU 显存（重要！）
+python -c "import torch_npu; torch_npu.npu.empty_cache()" 2>/dev/null || true
+
+# ✅ 启动训练
+torchrun --standalone --nproc_per_node=8 -m scripts.mid_train "$@"
+```
+
+**为什么费劲**:
+- 环境变量很多，容易遗漏
+- 需要为每个训练阶段配置不同的端口
+- 需要添加环境检查和错误处理
+- 需要处理 NPU 显存清理
+
+### 3.6. 依赖配置修改 (`pyproject.toml`)
+
+**修改位置**: `pyproject.toml`
+
+**添加内容**:
+```toml
+[project.optional-dependencies]
+npu = [
+    "torch_npu",  # ✅ 华为 NPU 支持
+]
+```
+
+**为什么费劲**: 
+- 需要了解 `torch_npu` 的安装方式（通常不在 PyPI，需要从华为官网下载）
+- 版本匹配很重要，需要与 CANN 版本对应
+
+### 3.7. 其他零散修改
+
+还有很多零散的修改点：
+
+1. **错误处理增强**: 添加 NPU 不可用时的降级逻辑
+2. **日志输出**: 添加设备类型信息，便于调试
+3. **检查点加载**: 处理 NPU 和 CUDA 之间的模型转换
+4. **评估脚本**: 修改设备检测逻辑
+
+### 3.8. 修改统计
+
+总结一下修改的工作量：
+
+| 文件类型 | 文件数量 | 平均修改行数 | 总修改行数 | 难度 |
+|---------|---------|------------|-----------|------|
+| 训练脚本 | 4 | ~150 | ~600 | ⭐⭐⭐⭐⭐ |
+| 启动脚本 | 3 | ~100 | ~300 | ⭐⭐⭐ |
+| 配置文件 | 1 | ~10 | ~10 | ⭐⭐ |
+| 其他工具脚本 | 5+ | ~50 | ~250 | ⭐⭐⭐ |
+| **总计** | **13+** | - | **~1160** | - |
+
+**最费劲的部分**:
+1. 🔴 **优化器适配** (5/5 难度): 需要深入理解分布式优化器原理
+2. 🔴 **设备 API 替换** (4/5 难度): 代码中分散，容易遗漏
+3. 🟠 **批次大小调优** (4/5 难度): 需要大量实验
+4. 🟠 **环境变量配置** (3/5 难度): 容易出错，调试困难
+5. 🟡 **torch.compile 禁用** (2/5 难度): 相对简单但需要全面检查
+
+**总结**: 适配 NPU 不是简单的"替换几个 API"，而是一个**系统性的工程**，涉及代码修改、环境配置、性能调优、问题调试等多个方面。整个过程非常**费劲**，但最终成功实现了在 NPU 上的稳定训练。
+
+---
+
+## 4. 关键 Bug 与解决方案汇总
 
 | Bug/问题分类 | 具体描述 | 解决方案 | 相关文件/文档 |
 | :--- | :--- | :--- | :--- |
